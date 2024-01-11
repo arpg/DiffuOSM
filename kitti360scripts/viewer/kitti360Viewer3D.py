@@ -129,7 +129,7 @@ class Kitti360Viewer3D(object):
                 color[globalIds==uid] = self.getColor(instanceId)
             else:
                 color[globalIds==uid] = (96,96,96) # stuff objects in instance mode
-        color = color.astype(np.float)/255.0
+        color = color.astype(np.cfloat)/255.0
         return color
 
     def assignColorConfidence(self, confidence):
@@ -182,7 +182,7 @@ class Kitti360Viewer3D(object):
             color=np.vstack((data['red'], data['green'], data['blue'])).T
             pcd = open3d.geometry.PointCloud()
             pcd.points = open3d.utility.Vector3dVector(points)
-            pcd.colors = open3d.utility.Vector3dVector(color.astype(np.float)/255.)
+            pcd.colors = open3d.utility.Vector3dVector(color.astype(np.cfloat)/255.)
         
         # assign color
         if colorType=='semantic' or colorType=='instance':
@@ -291,7 +291,7 @@ class Kitti360Viewer3D(object):
 if __name__=='__main__':
 
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--sequence', type=int, default=0, 
+    parser.add_argument('--sequence', type=int, default=5, 
                                 help='The sequence to visualize')
     parser.add_argument('--mode', choices=['rgb', 'semantic', 'instance', 'confidence', 'bbox'], default='semantic',
                                 help='The modality to visualize')
@@ -300,21 +300,31 @@ if __name__=='__main__':
 
     args = parser.parse_args()
 
+    # Set view object with integer sequence number
     v = Kitti360Viewer3D(args.sequence)
 
     if args.mode=='bbox':
         v.loadBoundingBoxes()
 
+#############################################################################################
     if args.mode!='bbox':
-
-        pcdFileList = v.annotation3DPly.pcdFileList 
+        pcd_list = []
+        pcdFileList = v.annotation3DPly.pcdFileList # All static pcd file locations
         for idx,pcdFile in enumerate(pcdFileList):
-            pcd = v.loadWindow(pcdFile, args.mode)
-            if len(np.asarray(pcd.points))==0:
-                print('Warning: skipping empty point cloud!')
-                continue
-            open3d.visualization.draw_geometries([pcd])
 
+            # Get semantically labeled pcd:
+            if idx < 25:
+                pcd = v.loadWindow(pcdFile, args.mode)
+
+                if len(np.asarray(pcd.points))==0:
+                    print('Warning: skipping empty point cloud!')
+                    continue
+                
+                pcd_list.append(pcd)
+
+        open3d.visualization.draw_geometries(pcd_list)
+#############################################################################################
+            
     else:
         if not len(v.bboxes):
             raise RuntimeError('No bounding boxes found! Please set KITTI360_DATASET in your environment path')
