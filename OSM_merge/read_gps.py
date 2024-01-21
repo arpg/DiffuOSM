@@ -43,9 +43,9 @@ for lat, lon in gps_data:
     ax.scatter(lon, lat, c='red', s=1)  # longitude, latitude
 
 # Save the figure as a PNG file
-output_filename = '0002_gps_data.png'
-plt.savefig(output_filename, bbox_inches='tight')
+# output_filename = '0002_gps_data.png'
+# plt.savefig(output_filename, bbox_inches='tight')
 
 # Display the plot
-# plt.show()
+plt.show()
 

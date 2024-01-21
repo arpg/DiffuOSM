@@ -166,8 +166,8 @@ def color_point_cloud(points, labels):
 
 def load_and_visualize(frame_number):
     # Adjust file paths based on frame number
-    pc_filepath = f'/home/donceykong/kitti_360/KITTI-360/data_3d_raw/2013_05_28_drive_0005_sync/velodyne_points/data/{frame_number:010d}.bin'
-    label_filepath = f'/home/donceykong/kitti_360/recoverKITTI360label/recovered/2013_05_28_drive_0005_sync/labels/{frame_number:010d}.bin'
+    pc_filepath = f'/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/KITTI360/data_3d_raw/2013_05_28_drive_0005_sync/velodyne_points/data/{frame_number:010d}.bin'
+    label_filepath = f'/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/recovered/2013_05_28_drive_0005_sync/labels/{frame_number:010d}.bin'
 
     if not os.path.exists(pc_filepath) or not os.path.exists(label_filepath):
         print(f"File not found for frame number {frame_number}")
