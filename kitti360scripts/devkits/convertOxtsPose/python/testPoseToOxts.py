@@ -6,15 +6,10 @@ from convertPoseToOxts import convertPoseToOxts
 
 if __name__=="__main__":
 
-  # root dir of KITTI-360
-  if 'KITTI360_DATASET' in os.environ:
-      kitti360_dir = os.environ['KITTI360_DATASET']
-  else:
-      kitti360_dir = os.path.join(os.path.dirname(
-                                 os.path.realpath(__file__)), '..', '..')
+  kitti360_dir = "/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/KITTI360"
 
   # load poses
-  seq_id = 0
+  seq_id = 5
 
   pose_file = os.path.join(kitti360_dir, 'data_poses', '2013_05_28_drive_%04d_sync'%seq_id, 'poses.txt')
   if not os.path.isfile(pose_file):

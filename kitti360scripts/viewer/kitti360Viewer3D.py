@@ -92,11 +92,8 @@ class Kitti360Viewer3D(object):
         # colormap for confidence
         self.cmap_conf = matplotlib.cm.get_cmap('plasma')
 
-        if 'KITTI360_DATASET' in os.environ:
-            kitti360Path = os.environ['KITTI360_DATASET']
-        else:
-            kitti360Path = os.path.join(os.path.dirname(
-                                os.path.realpath(__file__)), '..', '..')
+
+        kitti360Path = "/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/KITTI360"
 
         sequence = '2013_05_28_drive_%04d_sync' % seq
         self.label3DPcdPath  = os.path.join(kitti360Path, 'data_3d_semantics')
@@ -321,6 +318,14 @@ if __name__=='__main__':
                     continue
                 
                 pcd_list.append(pcd)
+
+        # Combine all point clouds into a single point cloud
+        combined_pcd = open3d.geometry.PointCloud()
+        for pcd in pcd_list:
+            combined_pcd += pcd
+
+        # Save the combined point cloud to a PLY file
+        open3d.io.write_point_cloud("/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/combined_point_cloud.ply", combined_pcd)
 
         open3d.visualization.draw_geometries(pcd_list)
 #############################################################################################
