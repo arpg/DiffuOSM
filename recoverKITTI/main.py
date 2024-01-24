@@ -2,8 +2,8 @@ from accumulation import *
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-k", "--kitti_dir", default='/home/donceykong/kitti_360/KITTI-360', help="path to kitti360 dataset")
-parser.add_argument("-o", "--output_dir", default='/home/donceykong/kitti_360/recoverKITTI360label/recovered', help="path to output_dir")
+parser.add_argument("-k", "--kitti_dir", default='/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/KITTI360', help="path to kitti360 dataset")
+parser.add_argument("-o", "--output_dir", default='/home/donceykong/kitti_360/recovered2', help="path to output_dir")
 parser.add_argument("-s", "--sequence", default='2013_05_28_drive_0005_sync', help="sequence name")
 parser.add_argument("-f", "--first_frame", type=int, default=0)
 parser.add_argument("-l", "--last_frame", type=int, default=6742)
