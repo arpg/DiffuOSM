@@ -127,7 +127,7 @@ def transform_point_cloud(pc, transformation_matrices, frame_number):
 
     return transformed_xyz
 
-poses_file = 'kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
+poses_file = '/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
 transformation_matrices = read_poses(poses_file)
 def load_and_visualize(frame_number, last_min):
     # Adjust file paths based on frame number
@@ -214,7 +214,7 @@ def create_point_clouds_from_xyz(xyz_positions):
         point_clouds.append(pcd)
     return point_clouds
 
-file_path = "/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/OSM_merge/2013_05_28_drive_0005_sync_pose2oxts.txt"
+file_path = "/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/2013_05_28_drive_0005_sync_pose2oxts.txt"
 xyz_positions = load_xyz_positions(file_path)
 
 # Create point clouds from XYZ positions
