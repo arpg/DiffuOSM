@@ -1,50 +1,11 @@
 import os
 import numpy as np
 import open3d as o3d
-import osmnx as ox
-from collections import namedtuple
+from open3d.io import write_point_cloud
 
 # Internal
 from labels import labels
 from convert_oxts_pose import *
-
-osm_file_path = '/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/map_0005.osm'
-
-# Filter features for buildings and sidewalks
-buildings = ox.features_from_xml(osm_file_path, tags={'building': True})
-sidewalks = ox.features_from_xml(osm_file_path, tags={'highway': 'footway', 'footway': 'sidewalk'})
-
-# Process Sidewalks
-sidewalk_lines = []
-for _, sidewalk in sidewalks.iterrows():
-    if sidewalk.geometry.geom_type == 'LineString':
-        y, x = sidewalk.geometry.xy
-        for i in range(len(x) - 1):
-            sidewalk_lines.append([[x[i], y[i], 0], [x[i + 1], y[i + 1], 0]])
-
-sidewalk_line_set = o3d.geometry.LineSet()
-sidewalk_points = [point for line in sidewalk_lines for point in line]
-sidewalk_lines_idx = [[i, i + 1] for i in range(0, len(sidewalk_points), 2)]
-sidewalk_line_set.points = o3d.utility.Vector3dVector(sidewalk_points)
-sidewalk_line_set.lines = o3d.utility.Vector2iVector(sidewalk_lines_idx)
-sidewalk_line_set.paint_uniform_color([0, 1, 0])  # Green color for sidewalks
-
-# Process Buildings as LineSets
-building_lines = []
-for _, building in buildings.iterrows():
-    if building.geometry.geom_type == 'Polygon':
-        exterior_coords = building.geometry.exterior.coords
-        for i in range(len(exterior_coords) - 1):
-            start_point = [exterior_coords[i][1], exterior_coords[i][0], 0]
-            end_point = [exterior_coords[i + 1][1], exterior_coords[i + 1][0], 0]
-            building_lines.append([start_point, end_point])
-
-building_line_set = o3d.geometry.LineSet()
-building_points = [point for line in building_lines for point in line]
-building_lines_idx = [[i, i + 1] for i in range(0, len(building_points), 2)]
-building_line_set.points = o3d.utility.Vector3dVector(building_points)
-building_line_set.lines = o3d.utility.Vector2iVector(building_lines_idx)
-building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
 
 '''
 view_frame_semantics.py
@@ -170,36 +131,6 @@ def load_and_visualize(frame_number, last_min):
 
     return colored_pcd, min_alt
 
-# def change_frame(vis, key_code):
-#     global frame_number
-#     if key_code == ord('N'):
-#         frame_number += 10
-#     elif key_code == ord('P'):
-#         frame_number -= 10
-#     else:
-#         return False
-#     new_pcd = load_and_visualize(frame_number)
-
-#     if new_pcd is not None:
-#         voxel_size = 0.00001  # example voxel size
-#         new_pcd_ds = new_pcd.voxel_down_sample(voxel_size)
-#         # vis.clear_geometries()
-#         # vis.add_geometry(sidewalk_line_set)
-#         # vis.add_geometry(building_line_set)
-#         vis.add_geometry(new_pcd_ds)
-#     return True
-
-# frame_number = 30  # starting frame number
-# initial_pcd = load_and_visualize(frame_number)
-
-# if initial_pcd:
-#     key_to_callback = {
-#         ord('N'): lambda vis: change_frame(vis, ord('N')),
-#         ord('P'): lambda vis: change_frame(vis, ord('P'))
-#     }
-#     o3d.visualization.draw_geometries_with_key_callbacks([initial_pcd], key_to_callback)
-
-
 def load_xyz_positions(file_path):
     with open(file_path, 'r') as file:
         lines = file.readlines()
@@ -244,8 +175,13 @@ while frame_num < 6255:  # Assuming you want to load frames from 0 to 6255
         # pcd_ds = pcd.voxel_down_sample(voxel_size)
         pcd_geometries.append(pcd)
 
-# print(last_min)
+# Merge all point clouds in pcd_geometries into a single point cloud
+merged_pcd = o3d.geometry.PointCloud()
+for pcd in pcd_geometries:
+    merged_pcd += pcd
 
-# # pcd_geometries.extend(xyz_point_clouds)
-pcd_geometries.append(building_line_set)
-o3d.visualization.draw_geometries(pcd_geometries)
+# Save the merged point cloud to a PLY file
+output_file_path = './output.ply'  # Specify your output file path here
+o3d.io.write_point_cloud(output_file_path, merged_pcd)
+
+print(f"Saved merged point cloud to {output_file_path}")
