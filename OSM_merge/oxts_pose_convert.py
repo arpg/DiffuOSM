@@ -229,7 +229,7 @@ testing
 '''
 
 if __name__=="__main__":
-    kitti360_dir = "/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/KITTI360"
+    kitti360_dir = "/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360"
 
     # load Oxts data
     seq_id = 5
@@ -252,7 +252,7 @@ if __name__=="__main__":
     output_dir = 'output'
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
-    output_file = '/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/OSM_merge/2013_05_28_drive_%04d_sync_oxts2pose.txt'% (seq_id)
+    output_file = '/Users/donceykong/Desktop/kitti360Scripts/2013_05_28_drive_%04d_sync_oxts2pose.txt'% (seq_id)
     
     with open(output_file, 'w') as f:
         for pose_ in poses:
