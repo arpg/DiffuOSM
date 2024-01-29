@@ -1,3 +1,12 @@
+# Dataset Adjustments
+
+This fork of the scripts for the KITTI360 dataset contain the following additions:
+
+1) A directory with a python-based implementation to extract per-scan labels for each frame. This is in the 'recoverKITTI' directory.
+
+2) A directory that contains Python scripts to overlay OSM-data with lidar scans. There is also addition code so that for each sequence, points that intersect a building polygon's edges will be extracted for points with the 'building' label and for points with the 'unlabeled' label. This directory is still actively being modified, so further documentation will be added soon.
+--- 
+
 # The KITTI-360 Dataset
 
 This repository contains scripts for inspection of the KITTI-360 dataset. This large-scale dataset contains 320k images and 100k laser scans in a driving distance of 73.7km.  We annotate both static and dynamic 3D scene elements with rough bounding primitives and transfer this information into the image domain, resulting in dense semantic & instance annotations on both 3D point clouds and 2D images.
