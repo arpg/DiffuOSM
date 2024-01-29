@@ -139,7 +139,6 @@ def convertPoseToOxts(pose):
     # translation vector
     lat, lon = mercatorToLatlon(t[0], t[1], scale)
     
-    # print(t[2])
     alt = t[2]
   
     # rotation matrix (OXTS RT3000 user manual, page 71/92)
@@ -259,6 +258,6 @@ def process_osm_file(input_file, output_file):
 testing
 '''
 # Example usage
-input_osm_file = '/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/map_0005.osm'
-output_osm_file = '/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/map_pose_0005.osm'
+input_osm_file = '/Users/donceykong/Desktop/kitti360Scripts/data/map_0005.osm'
+output_osm_file = '/Users/donceykong/Desktop/kitti360Scripts/data/map_pose_0005.osm'
 process_osm_file(input_osm_file, output_osm_file)
