@@ -1,21 +1,54 @@
-# Dataset Adjustments
+# The KITTI-360-OSM Extended Dataset
+
+This repository contains the code to interact with and extract needed files for the KITTI-360-OSM dataset.
+
+## Dataset Adjustments from original
 
 This fork of the scripts for the KITTI360 dataset contain the following additions:
 
 1) A directory with a python-based implementation to extract per-scan labels for each frame. This is in the 'recoverKITTI' directory.
 
 2) A directory that contains Python scripts to overlay OSM-data with lidar scans. There is also addition code so that for each sequence, points that intersect a building polygon's edges will be extracted for points with the 'building' label and for points with the 'unlabeled' label. This directory is still actively being modified, so further documentation will be added soon.
+
+This fork of the kitti360scripts repository has been modified to help obtain data to align Velodyne scans to OpenStreetMaps-based geodata. To view the modified KIITI-360 data, you can download it from here [].
+
+### The original KITTI-360 folder structure is as follows:
+
+#### Note from the authors: "The full dataset including raw data, semantic and instance labels in both 2D & 3D is structured as follows, where {seq:0>4} denotes the sequence ID using 4 digits and {frame:0>10} denotes the frame ID using 10 digits."
+
+Dataset structure and data formats are available at: www.cvlibs.net/datasets/kitti-360/documentation.php
+
+![Original KITTI-360 folder structure](./images/og_folder_structure.png)
+
+
+### The modified folder structure of KITTI-360 (KITTI-360-OSM) looks like:
+
+#### Here, some of the folders and internal files from the original KITTI-360 dataset were removed. Only the files that are planned to be used in this work were kept. All folders and files with a green color are new and were generated using the code here (besides the OSM files). 
+
+![Modified KITTI-360 folder structure](./images/kitti_360_folder_structure.png)
+
+
+
+
+
+
+
+
+
 --- 
+
+
+
+
+
+
+
 
 # The KITTI-360 Dataset
 
 This repository contains scripts for inspection of the KITTI-360 dataset. This large-scale dataset contains 320k images and 100k laser scans in a driving distance of 73.7km.  We annotate both static and dynamic 3D scene elements with rough bounding primitives and transfer this information into the image domain, resulting in dense semantic & instance annotations on both 3D point clouds and 2D images.
 
 Details and download are available at: www.cvlibs.net/datasets/kitti-360
-
-## Dataset Structure
-
-Dataset structure and data formats are available at: www.cvlibs.net/datasets/kitti-360/documentation.php
 
 ## Scripts
 
