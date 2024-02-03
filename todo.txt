@@ -1,7 +1,0 @@
-TODO:
-
-- See how oriented polygon to point intersection is done.
-
-- Test only viewing building points via their semantic label.
-
-
