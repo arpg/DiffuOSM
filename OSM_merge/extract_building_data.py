@@ -23,10 +23,12 @@ from tools.convert_oxts_pose import *
 
 
 oxts_pose_file_path = "/Users/donceykong/Desktop/kitti360Scripts/data/2013_05_28_drive_0005_sync_pose2oxts.txt"
+ply_file_path       = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'
+osm_file_path       = '/Users/donceykong/Desktop/kitti360Scripts/data/map_0005.osm'
+poses_file          = '/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
+
 xyz_point_clouds, xyz_positions = get_pointcloud_from_txt(oxts_pose_file_path) # Create point clouds from XYZ positions
 
-
-ply_file_path = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'
 point_cloud_3D = o3d.io.read_point_cloud(ply_file_path)
 points_3D = np.asarray(point_cloud_3D.points)
 points_2D = points_3D.copy()
@@ -34,8 +36,6 @@ points_2D[:, 2] = 0
 point_cloud_2D = o3d.geometry.PointCloud()
 point_cloud_2D.points = o3d.utility.Vector3dVector(points_2D)
 
-
-osm_file_path = '/Users/donceykong/Desktop/kitti360Scripts/data/map_0005.osm'
 building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
 print(f"\nlen(buildings): {len(building_features)}")
 threshold_dist = 0.0008 
@@ -92,7 +92,6 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list):
 # Create a dictionary for label colors
 labels_dict = {label.id: label.color for label in labels}
 
-poses_file = '/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
 transformation_matrices = get_transform_matrices(poses_file)
 
 frame_number = 30  # starting frame number
