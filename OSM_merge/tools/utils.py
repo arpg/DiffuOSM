@@ -1,7 +1,14 @@
 '''
-Genral utilities for running code.
+By: Doncey Albin
 
-By Doncey Albin
+
+Refactoring of kitti360scripts and recoverKitti repositories was made in order to create this pipeline.
+I couldn't have done it without them.
+    - kitti360scripts:
+    - recoverKitti:
+
+
+Genral utilities for running code.
 
 '''
 import os
@@ -63,6 +70,13 @@ def create_circle(center, radius, num_points=30):
     circle_pcd = o3d.geometry.PointCloud()
     circle_pcd.points = o3d.utility.Vector3dVector(points)
     return circle_pcd
+
+
+
+
+
+
+
 
 
 
@@ -207,20 +221,6 @@ def get_building_hit_list(building_list):
 '''
 view_frame_semantics2.py
 '''
-def read_label_bin_file(file_path):
-    """
-    Reads a .bin file containing point cloud labels.
-    """
-    labels = np.fromfile(file_path, dtype=np.int16)
-    return labels.reshape(-1)
-
-def read_bin_file(file_path):
-    """
-    Reads a .bin file containing point cloud data.
-    Assumes each point is represented by four float32 values (x, y, z, intensity).
-    """
-    point_cloud = np.fromfile(file_path, dtype=np.float32)
-    return point_cloud.reshape(-1, 4)
 
 def color_point_cloud(points, labels, labels_dict):
     """
@@ -345,3 +345,92 @@ def create_point_clouds_from_xyz(xyz_positions):
         pcd.points = o3d.utility.Vector3dVector([xyz])
         point_clouds.append(pcd)
     return point_clouds
+
+
+
+
+
+
+
+# From create_velodyne_poses.py
+
+def read_poses(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    matrices = []
+    for line in lines:
+        elements = line.split()
+        matrix_3x4 = np.array(elements[1:], dtype=float).reshape((3, 4))
+        matrix_4x4 = np.vstack([matrix_3x4, np.array([0, 0, 0, 1])])
+        matrices.append(matrix_4x4)
+    transformation_matrices = np.stack(matrices)
+    return transformation_matrices
+
+def transform_imu_to_lidar(transformation_matrices, translation_vector, rotation_matrix):
+    # Create the transformation matrix from IMU to LiDAR
+    imu_to_lidar_matrix = np.identity(4)
+    imu_to_lidar_matrix[:3, :3] = rotation_matrix
+    imu_to_lidar_matrix[:3, 3] = translation_vector
+
+    # Apply the transformation to each pose
+    lidar_poses = np.matmul(transformation_matrices, imu_to_lidar_matrix)
+    return lidar_poses
+
+def write_poses(file_path, transformation_matrices, frame_indices):
+    with open(file_path, 'w') as file:
+        for idx, matrix in zip(frame_indices, transformation_matrices):
+            # Flatten the matrix to a 1D array, convert to strings, and join with spaces
+            matrix_string = ' '.join(map(str, matrix.flatten()))
+            # Write the frame index followed by the flattened matrix
+            file.write(f"{idx} {matrix_string}\n")
+
+
+
+
+
+
+# from save_building_unlabeled_points.py
+
+# def read_poses(file_path):
+#     transformation_matrices = {}
+
+#     with open(file_path, 'r') as file:
+#         for line in file:
+#             # Split the line into individual elements
+#             elements = line.strip().split()
+#             frame_index = int(elements[0])  # Frame index is the first element
+
+#             # Check if the line contains 16 elements for a 4x4 matrix
+#             if len(elements[1:]) == 16:
+#                 # Convert elements to float and reshape into 4x4 matrix
+#                 matrix_4x4 = np.array(elements[1:], dtype=float).reshape((4, 4))
+#             else:
+#                 # Otherwise, assume it is a 3x4 matrix and append a homogeneous row
+#                 matrix_3x4 = np.array(elements[1:], dtype=float).reshape((3, 4))
+#                 matrix_4x4 = np.vstack([matrix_3x4, np.array([0, 0, 0, 1])])
+
+#             # Store the matrix using the frame index as the key
+#             transformation_matrices[frame_index] = matrix_4x4
+
+#     return transformation_matrices
+
+# def transform_point_cloud(pc, transformation_matrices, frame_number):
+#     if frame_number >= len(transformation_matrices):
+#         print(f"Frame number {frame_number} is out of range.")
+#         return None
+
+#     # Get the transformation matrix for the current frame
+#     transformation_matrix = transformation_matrices.get(frame_number)
+
+#     # Separate the XYZ coordinates and intensity values
+#     xyz = pc[:, :3]
+#     intensity = pc[:, 3].reshape(-1, 1)
+
+#     # Convert the XYZ coordinates to homogeneous coordinates
+#     xyz_homogeneous = np.hstack([xyz, np.ones((xyz.shape[0], 1))])
+
+#     # Apply the transformation to each XYZ coordinate
+#     transformed_xyz = np.dot(xyz_homogeneous, transformation_matrix.T)[:, :3]
+
+#     return transformed_xyz
