@@ -1,5 +1,20 @@
 '''
-Doncey Albin
+By: Doncey Albin
+
+
+Refactoring of kitti360scripts and recoverKitti repositories was made in order to create this pipeline.
+I couldn't have done it without them.
+    - kitti360scripts:
+    - recoverKitti:
+
+
+Extract building points for each frame in each sequence, as well as save them.
+
+*) Extract points and save each building (from osm) that is actually hit by points.
+    --> Save building semantic info?
+    --> Make sure to extract complete building, not just subsections (see get_target_osm_building.py)
+    --> saved in KITTI360/data_3d_extracted/2013_05_28_drive_0005_sync/hit_building_list.npy
+
 
 '''
 
@@ -15,17 +30,98 @@ from tools.labels import labels
 from tools.utils import *
 from tools.convert_oxts_pose import *
 
+'''
+Number 1: Create Velodyne Poses
 
 '''
-    - See number #1 below and integrate
-    - See number #2 below and integrate
+
+def get_trans_poses_from_imu_to_velodyne(sequence_num):
+    sequence = '2013_05_28_drive_%04d_sync' % sequence_num
+    imu_poses_file = f'kitti360Scripts/data/KITTI360/data_poses/{sequence}/poses.txt'
+    vel_poses_file = f'kitti360Scripts/data/KITTI360/data_poses/{sequence}/vel_poses.txt'
+
+    # Define the translation vector from IMU to LiDAR
+    translation_vector = np.array([0.81, 0.32, -0.83])
+
+    # Define the rotation matrix for a 180-degree rotation about the X-axis
+    rotation_matrix = np.array([[1, 0, 0],
+                                [0, -1, 0],
+                                [0, 0, -1]])
+
+    # Read the IMU poses
+    transformation_matrices = read_poses(imu_poses_file)
+
+    # Extract frame indices (assuming they are the first element in each line)
+    frame_indices = []
+    with open(imu_poses_file, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            frame_indices.append(line.split()[0])
+
+    # Transform IMU poses to LiDAR poses
+    lidar_poses = transform_imu_to_lidar(transformation_matrices, translation_vector, rotation_matrix)
+
+    # Write the LiDAR poses to file
+    write_poses(vel_poses_file, lidar_poses, frame_indices)
+
+    return lidar_poses
+
+
+
+
 '''
+Number 2: Save "building" and "unlabeled" points
+
+'''
+
+transformation_matrices = get_trans_poses_from_imu_to_velodyne('0005')
+
+# imu_file_path = "/Users/donceykong/Desktop/kitti360Scripts/data/2013_05_28_drive_0005_sync_pose2oxts.txt"
+# xyz_positions = load_xyz_positions(imu_file_path)
+
+# # Create point clouds from XYZ positions
+# xyz_point_clouds = create_point_clouds_from_xyz(xyz_positions)
+
+# List to hold all point cloud geometries
+pcd_geometries = []
+
+# Iterate through frame numbers and load each point cloud
+frame_num = 30  # Initial frame number
+last_min = 0
+total_labels = 6255
+while frame_num <= total_labels:
+    # print(f"frame_num: {frame_num}")
+    pcd, new_min = load_and_visualize(frame_num, last_min)
+    frame_num += 1
+    if pcd is not None:
+        last_min = new_min
+        # frame_num += 5
+        # voxel_size = 0.0000001  # example voxel size
+        # pcd_ds = pcd.voxel_down_sample(voxel_size)
+        pcd_geometries.append(pcd)
+
+# Merge all point clouds in pcd_geometries into a single point cloud
+merged_pcd = o3d.geometry.PointCloud()
+for pcd in pcd_geometries:
+    merged_pcd += pcd
+
+# Save the merged point cloud to a PLY file
+output_file_path = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'  # Specify your output file path here
+o3d.io.write_point_cloud(output_file_path, merged_pcd)
+
+print(f"Saved merged point cloud to {output_file_path}")
+
+
+
+
+
+
 
 
 oxts_pose_file_path = "/Users/donceykong/Desktop/kitti360Scripts/data/2013_05_28_drive_0005_sync_pose2oxts.txt"
 ply_file_path       = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'
 osm_file_path       = '/Users/donceykong/Desktop/kitti360Scripts/data/map_0005.osm'
-poses_file          = '/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
+velodyne_poses_file_path          = '/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
 
 xyz_point_clouds, xyz_positions = get_pointcloud_from_txt(oxts_pose_file_path) # Create point clouds from XYZ positions
 
@@ -92,7 +188,7 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list):
 # Create a dictionary for label colors
 labels_dict = {label.id: label.color for label in labels}
 
-transformation_matrices = get_transform_matrices(poses_file)
+transformation_matrices = get_transform_matrices(velodyne_poses_file_path)
 
 frame_number = 30  # starting frame number
 MAX_FRAME_NUMBER = 6000
@@ -112,172 +208,18 @@ while True:
 
 
 
-'''
-Number 1: Create Velodyne Poses
-
-'''
-
-# import os
-# import numpy as np
-
-# def read_poses(file_path):
-#     with open(file_path, 'r') as file:
-#         lines = file.readlines()
-
-#     matrices = []
-#     for line in lines:
-#         elements = line.split()
-#         matrix_3x4 = np.array(elements[1:], dtype=float).reshape((3, 4))
-#         matrix_4x4 = np.vstack([matrix_3x4, np.array([0, 0, 0, 1])])
-#         matrices.append(matrix_4x4)
-#     transformation_matrices = np.stack(matrices)
-#     return transformation_matrices
-
-# def transform_imu_to_lidar(transformation_matrices, translation_vector, rotation_matrix):
-#     # Create the transformation matrix from IMU to LiDAR
-#     imu_to_lidar_matrix = np.identity(4)
-#     imu_to_lidar_matrix[:3, :3] = rotation_matrix
-#     imu_to_lidar_matrix[:3, 3] = translation_vector
-
-#     # Apply the transformation to each pose
-#     lidar_poses = np.matmul(transformation_matrices, imu_to_lidar_matrix)
-#     return lidar_poses
-
-# def write_poses(file_path, transformation_matrices, frame_indices):
-#     with open(file_path, 'w') as file:
-#         for idx, matrix in zip(frame_indices, transformation_matrices):
-#             # Flatten the matrix to a 1D array, convert to strings, and join with spaces
-#             matrix_string = ' '.join(map(str, matrix.flatten()))
-#             # Write the frame index followed by the flattened matrix
-#             file.write(f"{idx} {matrix_string}\n")
-
-# # Define the translation vector from IMU to LiDAR
-# translation_vector = np.array([0.81, 0.32, -0.83])
-
-# # Define the rotation matrix for a 180-degree rotation about the X-axis
-# rotation_matrix = np.array([[1, 0, 0],
-#                             [0, -1, 0],
-#                             [0, 0, -1]])
-
-# imu_poses_file = 'kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/poses.txt'
-# vel_poses_file = 'kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
-
-# # Read the IMU poses
-# transformation_matrices = read_poses(imu_poses_file)
-
-# # Extract frame indices (assuming they are the first element in each line)
-# frame_indices = []
-# with open(imu_poses_file, 'r') as file:
-#     lines = file.readlines()
-#     for line in lines:
-#         frame_indices.append(line.split()[0])
-
-# # Transform IMU poses to LiDAR poses
-# lidar_poses = transform_imu_to_lidar(transformation_matrices, translation_vector, rotation_matrix)
-
-# # Write the LiDAR poses to file
-# write_poses(vel_poses_file, lidar_poses, frame_indices)
 
 
 
 
-'''
-Number 2: Save "building" and "unlabeled" points
 
-'''
 
-# import os
-# import numpy as np
-# import open3d as o3d
-# from open3d.io import write_point_cloud
 
-# # Internal
-# from tools.labels import labels
-# from tools.convert_oxts_pose import *
 
-# '''
-# view_frame_semantics.py
-# '''
-# def read_label_bin_file(file_path):
-#     """
-#     Reads a .bin file containing point cloud labels.
-#     """
-#     labels = np.fromfile(file_path, dtype=np.int16)
-#     return labels.reshape(-1)
 
-# def read_bin_file(file_path):
-#     """
-#     Reads a .bin file containing point cloud data.
-#     Assumes each point is represented by four float32 values (x, y, z, intensity).
-#     """
-#     point_cloud = np.fromfile(file_path, dtype=np.float32)
-#     return point_cloud.reshape(-1, 4)
 
-# # Create a dictionary for label colors
-# labels_dict = {label.id: label.color for label in labels}
 
-# def color_point_cloud(points, labels):
-#     """
-#     Colors the point cloud based on the labels.
-#     Each point in the point cloud is assigned the color of its label.
-#     """
-#     colored_points = np.zeros_like(points[:, :3])  # Initialize with zeros, only xyz
-#     for i, label in enumerate(labels):
-#         if np.isnan(label):
-#             continue  # Skip NaN labels
-#         if label == -1:
-#             continue  # Skip invalid labels
 
-#         color = labels_dict.get(label, (0, 0, 0))  # Default color is black
-
-#         colored_points[i] = np.array(color) / 255.0  # Normalize to [0, 1] for Open3D
-#     return colored_points
-
-# def read_poses(file_path):
-#     transformation_matrices = {}
-
-#     with open(file_path, 'r') as file:
-#         for line in file:
-#             # Split the line into individual elements
-#             elements = line.strip().split()
-#             frame_index = int(elements[0])  # Frame index is the first element
-
-#             # Check if the line contains 16 elements for a 4x4 matrix
-#             if len(elements[1:]) == 16:
-#                 # Convert elements to float and reshape into 4x4 matrix
-#                 matrix_4x4 = np.array(elements[1:], dtype=float).reshape((4, 4))
-#             else:
-#                 # Otherwise, assume it is a 3x4 matrix and append a homogeneous row
-#                 matrix_3x4 = np.array(elements[1:], dtype=float).reshape((3, 4))
-#                 matrix_4x4 = np.vstack([matrix_3x4, np.array([0, 0, 0, 1])])
-
-#             # Store the matrix using the frame index as the key
-#             transformation_matrices[frame_index] = matrix_4x4
-
-#     return transformation_matrices
-
-# def transform_point_cloud(pc, transformation_matrices, frame_number):
-#     if frame_number >= len(transformation_matrices):
-#         print(f"Frame number {frame_number} is out of range.")
-#         return None
-
-#     # Get the transformation matrix for the current frame
-#     transformation_matrix = transformation_matrices.get(frame_number)
-
-#     # Separate the XYZ coordinates and intensity values
-#     xyz = pc[:, :3]
-#     intensity = pc[:, 3].reshape(-1, 1)
-
-#     # Convert the XYZ coordinates to homogeneous coordinates
-#     xyz_homogeneous = np.hstack([xyz, np.ones((xyz.shape[0], 1))])
-
-#     # Apply the transformation to each XYZ coordinate
-#     transformed_xyz = np.dot(xyz_homogeneous, transformation_matrix.T)[:, :3]
-
-#     return transformed_xyz
-
-# poses_file = '/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
-# transformation_matrices = read_poses(poses_file)
 # def load_and_visualize(frame_number, last_min):
 #     # Adjust file paths based on frame number
 #     pc_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_raw/2013_05_28_drive_0005_sync/velodyne_points/data/{frame_number:010d}.bin'
@@ -339,38 +281,3 @@ Number 2: Save "building" and "unlabeled" points
 #         # pcd.paint_uniform_color([1, 0, 0])  # Red color for poses
 #         point_clouds.append(pcd)
 #     return point_clouds
-
-# file_path = "/Users/donceykong/Desktop/kitti360Scripts/data/2013_05_28_drive_0005_sync_pose2oxts.txt"
-# xyz_positions = load_xyz_positions(file_path)
-
-# # Create point clouds from XYZ positions
-# xyz_point_clouds = create_point_clouds_from_xyz(xyz_positions)
-
-# # List to hold all point cloud geometries
-# pcd_geometries = []
-
-# # Iterate through frame numbers and load each point cloud
-# frame_num = 30  # Initial frame number
-# last_min = 0
-# total_labels = 6255
-# while frame_num <= total_labels:
-#     # print(f"frame_num: {frame_num}")
-#     pcd, new_min = load_and_visualize(frame_num, last_min)
-#     frame_num += 1
-#     if pcd is not None:
-#         last_min = new_min
-#         # frame_num += 5
-#         # voxel_size = 0.0000001  # example voxel size
-#         # pcd_ds = pcd.voxel_down_sample(voxel_size)
-#         pcd_geometries.append(pcd)
-
-# # Merge all point clouds in pcd_geometries into a single point cloud
-# merged_pcd = o3d.geometry.PointCloud()
-# for pcd in pcd_geometries:
-#     merged_pcd += pcd
-
-# # Save the merged point cloud to a PLY file
-# output_file_path = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'  # Specify your output file path here
-# o3d.io.write_point_cloud(output_file_path, merged_pcd)
-
-# print(f"Saved merged point cloud to {output_file_path}")
