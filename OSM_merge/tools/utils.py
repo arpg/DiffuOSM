@@ -307,13 +307,13 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
     colored_points = color_point_cloud(pc, labels_np, labels_dict)
     colored_pcd = o3d.geometry.PointCloud()
     
-    # Reshape pointcloud to fit in convertPoseToOxts function
+    # Reshape pointcloud to fit in convertPointsToOxts function
     pc_reshaped = np.array([np.eye(4) for _ in range(pc.shape[0])])
     pc_reshaped[:, 0:3, 3] = pc[:, :3]
 
     # Convert to lat-lon-alt
     pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
-    pc_lla = np.asarray(convertPoseToOxts(pc_reshaped))
+    pc_lla = np.asarray(convertPointsToOxts(pc_reshaped))
 
     ave_alt = 226.60675 # Average altitude
     pc_lla[:, 2] = (pc_lla[:, 2] - ave_alt)*0.00001
@@ -349,13 +349,13 @@ def load_and_visualize_OG(frame_number, transformation_matrices, labels_dict):
     colored_points = color_point_cloud(pc, labels_np, labels_dict)
     colored_pcd = o3d.geometry.PointCloud()
     
-    # Reshape pointcloud to fit in convertPoseToOxts function
+    # Reshape pointcloud to fit in convertPointsToOxts function
     pc_reshaped = np.array([np.eye(4) for _ in range(pc.shape[0])])
     pc_reshaped[:, 0:3, 3] = pc[:, :3]
 
     # Convert to lat-lon-alt
     pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
-    pc_lla = np.asarray(convertPoseToOxts(pc_reshaped))
+    pc_lla = np.asarray(convertPointsToOxts(pc_reshaped))
 
     ave_alt = 226.60675 # Average altitude
     pc_lla[:, 2] = (pc_lla[:, 2] - ave_alt)*0.00001
