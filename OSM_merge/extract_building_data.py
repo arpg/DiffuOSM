@@ -23,134 +23,14 @@ import open3d as o3d
 from open3d.visualization import gui
 import numpy as np
 from collections import namedtuple
-import osmnx as ox
+# import osmnx as ox
 
 # Internal
 from tools.labels import labels
 from tools.utils import *
 from tools.convert_oxts_pose import *
 
-'''
-Number 1: Create Velodyne Poses
-
-'''
-
-def get_trans_poses_from_imu_to_velodyne(sequence_num):
-    sequence = '2013_05_28_drive_%04d_sync' % sequence_num
-    imu_poses_file = f'kitti360Scripts/data/KITTI360/data_poses/{sequence}/poses.txt'
-    vel_poses_file = f'kitti360Scripts/data/KITTI360/data_poses/{sequence}/vel_poses.txt'
-
-    # Define the translation vector from IMU to LiDAR
-    translation_vector = np.array([0.81, 0.32, -0.83])
-
-    # Define the rotation matrix for a 180-degree rotation about the X-axis
-    rotation_matrix = np.array([[1, 0, 0],
-                                [0, -1, 0],
-                                [0, 0, -1]])
-
-    # Read the IMU poses
-    transformation_matrices = read_poses(imu_poses_file)
-
-    # Extract frame indices (assuming they are the first element in each line)
-    frame_indices = []
-    with open(imu_poses_file, 'r') as file:
-        lines = file.readlines()
-        for line in lines:
-            frame_indices.append(line.split()[0])
-
-    # Transform IMU poses to LiDAR poses
-    lidar_poses = transform_imu_to_lidar(transformation_matrices, translation_vector, rotation_matrix)
-
-    # Write the LiDAR poses to file
-    write_poses(vel_poses_file, lidar_poses, frame_indices)
-
-    return lidar_poses
-
-
-
-
-'''
-Number 2: Save "building" and "unlabeled" points
-
-'''
-
-transformation_matrices = get_trans_poses_from_imu_to_velodyne('0005')
-
-# imu_file_path = "/Users/donceykong/Desktop/kitti360Scripts/data/2013_05_28_drive_0005_sync_pose2oxts.txt"
-# xyz_positions = load_xyz_positions(imu_file_path)
-
-# # Create point clouds from XYZ positions
-# xyz_point_clouds = create_point_clouds_from_xyz(xyz_positions)
-
-# List to hold all point cloud geometries
-pcd_geometries = []
-
-# Iterate through frame numbers and load each point cloud
-frame_num = 30  # Initial frame number
-last_min = 0
-total_labels = 6255
-while frame_num <= total_labels:
-    # print(f"frame_num: {frame_num}")
-    pcd, new_min = load_and_visualize(frame_num, last_min)
-    frame_num += 1
-    if pcd is not None:
-        last_min = new_min
-        # frame_num += 5
-        # voxel_size = 0.0000001  # example voxel size
-        # pcd_ds = pcd.voxel_down_sample(voxel_size)
-        pcd_geometries.append(pcd)
-
-# Merge all point clouds in pcd_geometries into a single point cloud
-merged_pcd = o3d.geometry.PointCloud()
-for pcd in pcd_geometries:
-    merged_pcd += pcd
-
-# Save the merged point cloud to a PLY file
-output_file_path = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'  # Specify your output file path here
-o3d.io.write_point_cloud(output_file_path, merged_pcd)
-
-print(f"Saved merged point cloud to {output_file_path}")
-
-
-
-
-
-
-
-
-oxts_pose_file_path = "/Users/donceykong/Desktop/kitti360Scripts/data/2013_05_28_drive_0005_sync_pose2oxts.txt"
-ply_file_path       = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'
-osm_file_path       = '/Users/donceykong/Desktop/kitti360Scripts/data/map_0005.osm'
-velodyne_poses_file_path          = '/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_poses/2013_05_28_drive_0005_sync/vel_poses.txt'
-
-xyz_point_clouds, xyz_positions = get_pointcloud_from_txt(oxts_pose_file_path) # Create point clouds from XYZ positions
-
-point_cloud_3D = o3d.io.read_point_cloud(ply_file_path)
-points_3D = np.asarray(point_cloud_3D.points)
-points_2D = points_3D.copy()
-points_2D[:, 2] = 0
-point_cloud_2D = o3d.geometry.PointCloud()
-point_cloud_2D.points = o3d.utility.Vector3dVector(points_2D)
-
-building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
-print(f"\nlen(buildings): {len(building_features)}")
-threshold_dist = 0.0008 
-building_list, building_line_set = get_buildings_near_poses(building_features, xyz_positions, threshold_dist)
-
-
-num_points_per_edge = 100
-discretize_all_building_edges(building_list, num_points_per_edge)
-
-
-radius = 0.000008
-# TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
-calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, radius)
-
-
-hit_building_list, hit_building_line_set = get_building_hit_list(building_list)
-
-
-def extract_and_save_building_points(new_pcd_3D, hit_building_list):
+def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius):
     # print("\n\n-   -   -   -   -   extract_and_save_points     -   -   -   -   -")
     new_pcd_2D = np.copy(np.asarray(new_pcd_3D.points))
     new_pcd_2D[:, 2] = 0
@@ -177,107 +57,101 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list):
             hit_building.scan_num += 1
             # hit_building.points.extend(masked_points_building)
 
+            # TODO: remove or comment out below
+            masked_building_pcd = o3d.geometry.PointCloud()
+            masked_building_pcd.points = o3d.utility.Vector3dVector(masked_points_building)
+            o3d.visualization.draw_geometries([masked_building_pcd])
+
             # Save hit_building.points as .bin file
-
-            # TODO: Inlcude frame number??????????????????????????????
-            file_name = f"/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_extracted/2013_05_28_drive_0005_sync/buildings/hitbuilding_{iter+1}_scan_{hit_building.scan_num}.bin"
-            with open(file_name, 'wb') as bin_file:
-                np.array(masked_points_building).tofile(bin_file)
-
-
-# Create a dictionary for label colors
-labels_dict = {label.id: label.color for label in labels}
-
-transformation_matrices = get_transform_matrices(velodyne_poses_file_path)
-
-frame_number = 30  # starting frame number
-MAX_FRAME_NUMBER = 6000
-
-while True:
-    new_pcd = load_and_visualize(frame_number, transformation_matrices, labels_dict)
-    
-    if new_pcd:
-        print(f"frame: {frame_number}")
-        extract_and_save_building_points(new_pcd, hit_building_list)
-    
-    frame_number += 1  # Increment the frame number
-
-    # Exit the loop if you've processed all frames
-    if frame_number > MAX_FRAME_NUMBER:  # Define the maximum frame number you want to process
-        break
+            # # TODO: Inlcude frame number??????????????????????????????
+            # file_name = f"/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_extracted/2013_05_28_drive_0005_sync/buildings/hitbuilding_{iter+1}_scan_{hit_building.scan_num}.bin"
+            # with open(file_name, 'wb') as bin_file:
+            #     np.array(masked_points_building).tofile(bin_file)
 
 
 
+class extractBuildingData(object):
+    # Constructor
+    def __init__(self, seq=5):
 
+        if 'KITTI360_DATASET' in os.environ:
+            kitti360Path = os.environ['KITTI360_DATASET']
+        else:
+            kitti360Path = os.path.join(os.path.dirname(
+                                os.path.realpath(__file__)), '..', '..')
+        
+        train_test = 'train'
+        if (seq>5): train_test = 'test'
 
+        sequence = '2013_05_28_drive_%04d_sync' % seq
+        self.kitti360Path = kitti360Path
+        self.raw_pc_path  = os.path.join(kitti360Path, 'data_3d_raw', sequence, 'velodyne_points', 'data')
 
+        # 1) Create velodyne poses in world frame
+        self.imu_poses_file = os.path.join(kitti360Path, 'data_poses', sequence, 'poses.txt')
+        self.velodyne_poses_file = os.path.join(kitti360Path, 'data_poses', sequence, 'velodyne_poses.txt')
+        self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, save_to_file=True)
+        self.velodyne_poses = read_vel_poses(self.velodyne_poses_file) # This is okay for now ...
+        # TODO: Why is read_vel_poses different from read_poses? 
+        # see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses()
 
+        # 2) Get accumulated points with labels "building" and "unlabeled" in lat-long frame
+        self.raw_pc_path  = os.path.join(kitti360Path, 'data_3d_raw', sequence, 'velodyne_points', 'data')
+        self.label_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'labels')
+        self.labels_dict = {label.id: label.color for label in labels}         # Create a dictionary for label colors
+        self.accumulated_color_pc = get_accum_colored_pc(self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict)
+        # o3d.visualization.draw_geometries([self.accumulated_color_pc])
 
+        # 3) Get 2D representation of accumulated_color_pc
+        accumulated_pc_3D = np.asarray(self.accumulated_color_pc.points)
+        points_2D = accumulated_pc_3D.copy()
+        points_2D[:, 2] = 0
+        self.accumulated_pc_2D = o3d.geometry.PointCloud()
+        self.accumulated_pc_2D.points = o3d.utility.Vector3dVector(points_2D)
 
+        # 3) Get imu in lat-long frame
+        # TODO: clean up below
+        [ts, poses] = loadPoses(self.imu_poses_file)
+        poses = postprocessPoses(poses)
+        oxts = convertPoseToOxts(poses) # convert to lat/lon coordinate
+        oxts_pose_file_path = os.path.join(kitti360Path, 'data_poses', sequence, 'poses.txt')
+        with open(oxts_pose_file_path, 'w') as f:
+            for oxts_ in oxts:
+                oxts_ = ' '.join(['%.6f'%x for x in oxts_])
+                f.write('%s\n'%oxts_)
+        print('Output written to %s' % oxts_pose_file_path)
+        xyz_point_clouds, xyz_positions = get_pointcloud_from_txt(oxts_pose_file_path) # Create point clouds from XYZ positions
 
+        # 5) Filter buildings to be within threshold_dist of path
+        threshold_dist = 0.0008
+        osm_file = 'map_%04d.osm' % seq
+        self.osm_file_path = os.path.join(kitti360Path, 'data_osm', osm_file) 
+        self.building_list, building_line_set = get_buildings_near_poses(self.osm_file_path, xyz_positions, threshold_dist)
 
+        # 6) Extract and save points corresponding to OSM building edges
+        self.num_points_per_edge = 100
+        self.radius = 0.000008
+        self.init_frame = 30
+        self.inc_frame = 100
+        self.fin_frame = 6000
+        self.extract_per_frame_building_edge_points()
 
+    def extract_per_frame_building_edge_points(self):
+        discretize_all_building_edges(self.building_list, self.num_points_per_edge)
+        # TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
+        calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.radius)
+        hit_building_list, hit_building_line_set = get_building_hit_list(self.building_list)
+        frame_num = self.init_frame
+        while True:
+            raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
+            pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+            new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
+            
+            if new_pcd is not None:
+                extract_and_save_building_points(new_pcd, hit_building_list, self.radius)
+                print(f"Extracted points from frame: {frame_num} that hit OSM building edges.")
+            frame_num += self.inc_frame
 
-
-
-# def load_and_visualize(frame_number, last_min):
-#     # Adjust file paths based on frame number
-#     pc_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_raw/2013_05_28_drive_0005_sync/velodyne_points/data/{frame_number:010d}.bin'
-#     label_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/recovered/2013_05_28_drive_0005_sync/labels/{frame_number:010d}.bin'
-    
-#     if not os.path.exists(pc_filepath) or not os.path.exists(label_filepath):
-#         print(f"File not found for frame number {frame_number}")
-#         return None, None
-
-#     # read pointcloud bin files and label bin files
-#     pc = read_bin_file(pc_filepath)
-#     pc = transform_point_cloud(pc, transformation_matrices, frame_number)
-#     labels_np = read_label_bin_file(label_filepath)
-
-#     # boolean mask where True represents the labels to keep
-#     label_mask = (labels_np == 11) | (labels_np == 0)
-
-#     # mask to filter the point cloud and labels
-#     pc = pc[label_mask]
-#     labels_np = labels_np[label_mask]
-
-#     # color the point cloud
-#     colored_points = color_point_cloud(pc, labels_np)
-#     colored_pcd = o3d.geometry.PointCloud()
-    
-#     # Reshape pointcloud to fit in convertPoseToOxts function
-#     pc_reshaped = np.array([np.eye(4) for _ in range(pc.shape[0])])
-#     pc_reshaped[:, 0:3, 3] = pc[:, :3]
-
-#     # Convert to lat-lon-alt
-#     pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
-#     pc_lla = np.asarray(convertPoseToOxts(pc_reshaped))
-
-#     min_alt = 226.60675 #(np.min(pc_lla[:, 2]) + last_min)/2
-#     pc_lla[:, 2] = (pc_lla[:, 2] - min_alt)*0.00001
-
-#     colored_pcd.points = o3d.utility.Vector3dVector(pc_lla[:, :3])  # Only use lat, lon, alt for geometry
-#     colored_pcd.colors = o3d.utility.Vector3dVector(colored_points) # Set colors
-
-#     return colored_pcd, min_alt
-
-# def load_xyz_positions(file_path):
-#     with open(file_path, 'r') as file:
-#         lines = file.readlines()
-
-#     xyz_positions = []
-#     for line in lines:
-#         matrix_elements = np.array(line.split(), dtype=float)
-#         x, y = matrix_elements[0], matrix_elements[1]
-#         xyz_positions.append([x, y, 0])
-#     return xyz_positions
-
-# def create_point_clouds_from_xyz(xyz_positions):
-#     point_clouds = []
-#     for xyz in xyz_positions:
-#         # Create a point cloud with a single point
-#         pcd = o3d.geometry.PointCloud()
-#         pcd.points = o3d.utility.Vector3dVector([xyz])
-#         # pcd.paint_uniform_color([1, 0, 0])  # Red color for poses
-#         point_clouds.append(pcd)
-#     return point_clouds
+            # Exit the loop if you've processed all frames
+            if frame_num > self.fin_frame:  # Define the maximum frame number you want to process
+                break
