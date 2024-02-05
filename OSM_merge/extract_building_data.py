@@ -30,7 +30,7 @@ from tools.labels import labels
 from tools.utils import *
 from tools.convert_oxts_pose import *
 
-def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius):
+def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, frame_num):
     # print("\n\n-   -   -   -   -   extract_and_save_points     -   -   -   -   -")
     new_pcd_2D = np.copy(np.asarray(new_pcd_3D.points))
     new_pcd_2D[:, 2] = 0
@@ -41,6 +41,7 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius):
 
     len_hit_building_list = len(hit_building_list)
     point_cloud_2D_kdtree = KDTree(np.asarray(point_cloud_2D.points))
+    masked_points_frame = []
     for iter, hit_building in enumerate(hit_building_list):
         iter += 1
         # print(f"    - Hit Building: {iter} / {len_hit_building_list}")
@@ -58,15 +59,19 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius):
             # hit_building.points.extend(masked_points_building)
 
             # TODO: remove or comment out below
-            masked_building_pcd = o3d.geometry.PointCloud()
-            masked_building_pcd.points = o3d.utility.Vector3dVector(masked_points_building)
-            o3d.visualization.draw_geometries([masked_building_pcd])
+            # masked_building_pcd = o3d.geometry.PointCloud()
+            # masked_building_pcd.points = o3d.utility.Vector3dVector(masked_points_building)
+            # o3d.visualization.draw_geometries([masked_building_pcd])
 
             # Save hit_building.points as .bin file
             # # TODO: Inlcude frame number??????????????????????????????
             # file_name = f"/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_extracted/2013_05_28_drive_0005_sync/buildings/hitbuilding_{iter+1}_scan_{hit_building.scan_num}.bin"
             # with open(file_name, 'wb') as bin_file:
             #     np.array(masked_points_building).tofile(bin_file)
+        masked_points_frame.extend(masked_points_building)
+        masked_frame_pcd = o3d.geometry.PointCloud()
+        masked_frame_pcd.points = o3d.utility.Vector3dVector(masked_points_frame)
+        o3d.visualization.draw_geometries([masked_frame_pcd])
 
 
 
@@ -148,7 +153,7 @@ class extractBuildingData(object):
             new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
             
             if new_pcd is not None:
-                extract_and_save_building_points(new_pcd, hit_building_list, self.radius)
+                extract_and_save_building_points(new_pcd, hit_building_list, self.radius, frame_num)
                 print(f"Extracted points from frame: {frame_num} that hit OSM building edges.")
             frame_num += self.inc_frame
 
