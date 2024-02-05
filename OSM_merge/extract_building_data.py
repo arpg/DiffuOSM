@@ -114,7 +114,7 @@ class extractBuildingData(object):
         [ts, poses] = loadPoses(self.imu_poses_file)
         poses = postprocessPoses(poses)
         oxts = convertPoseToOxts(poses) # convert to lat/lon coordinate
-        oxts_pose_file_path = os.path.join(kitti360Path, 'data_poses', sequence, 'poses.txt')
+        oxts_pose_file_path = os.path.join(kitti360Path, 'data_poses', sequence, 'poses_latlong.txt')
         with open(oxts_pose_file_path, 'w') as f:
             for oxts_ in oxts:
                 oxts_ = ' '.join(['%.6f'%x for x in oxts_])
