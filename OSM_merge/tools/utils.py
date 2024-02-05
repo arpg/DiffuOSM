@@ -14,6 +14,7 @@ Genral utilities for running code.
 import os
 import numpy as np
 import open3d as o3d
+import osmnx as ox
 from sklearn.neighbors import KDTree
 
 # Internal
@@ -47,8 +48,6 @@ def get_pointcloud_from_txt(file_path):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz_positions)
     return pcd, xyz_positions
-
-
 
 def create_circle(center, radius, num_points=30):
     """
@@ -136,7 +135,8 @@ def building_within_bounds(building_vertex, xyz_positions, threshold):
     # print(f"min vert dist: {min_vert_dist}")
     return min_vert_dist <= threshold
 
-def get_buildings_near_poses(building_features, xyz_positions, threshold_dist):
+def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
+    building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
     building_list = []
     for _, building in building_features.iterrows():
         if building.geometry.geom_type == 'Polygon':
@@ -286,7 +286,45 @@ def get_transformed_point_cloud(pc, transformation_matrices, frame_number):
 
     return transformed_xyz
 
-def load_and_visualize(frame_number, transformation_matrices, labels_dict):
+def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number, labels_dict):
+    if not os.path.exists(pc_filepath) or not os.path.exists(label_filepath):
+        print(f"File not found for frame number {frame_number}")
+        return None
+
+    # read pointcloud bin files and label bin files
+    pc = read_bin_file(pc_filepath)
+    pc = get_transformed_point_cloud(pc, velodyne_poses, frame_number)
+    labels_np = read_label_bin_file(label_filepath)
+
+    # boolean mask where True represents the labels to keep
+    label_mask = (labels_np == 11) | (labels_np == 0)
+
+    # mask to filter the point cloud and labels
+    # pc = pc[label_mask]
+    # labels_np = labels_np[label_mask]
+
+    # color the point cloud
+    colored_points = color_point_cloud(pc, labels_np, labels_dict)
+    colored_pcd = o3d.geometry.PointCloud()
+    
+    # Reshape pointcloud to fit in convertPoseToOxts function
+    pc_reshaped = np.array([np.eye(4) for _ in range(pc.shape[0])])
+    pc_reshaped[:, 0:3, 3] = pc[:, :3]
+
+    # Convert to lat-lon-alt
+    pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
+    pc_lla = np.asarray(convertPoseToOxts(pc_reshaped))
+
+    ave_alt = 226.60675 # Average altitude
+    pc_lla[:, 2] = (pc_lla[:, 2] - ave_alt)*0.00001
+
+    colored_pcd.points = o3d.utility.Vector3dVector(pc_lla[:, :3])  # Only use lat, lon, alt for geometry
+    colored_pcd.colors = o3d.utility.Vector3dVector(colored_points) # Set colors
+
+    return colored_pcd
+
+# TODO: Remove and replace with above
+def load_and_visualize_OG(frame_number, transformation_matrices, labels_dict):
     # Adjust file paths based on frame number
     pc_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_raw/2013_05_28_drive_0005_sync/velodyne_points/data/{frame_number:010d}.bin'
     label_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_semantics/train/2013_05_28_drive_0005_sync/labels/{frame_number:010d}.bin'
@@ -367,6 +405,14 @@ def read_poses(file_path):
     transformation_matrices = np.stack(matrices)
     return transformation_matrices
 
+def loadPoses (pos_file):
+  ''' load system poses '''
+  data = np.loadtxt(pos_file)
+  ts = data[:, 0].astype(np.int64)
+  poses = np.reshape(data[:, 1:], (-1, 3, 4))
+  poses = np.concatenate((poses, np.tile(np.array([0, 0, 0, 1]).reshape(1,1,4),(poses.shape[0],1,1))), 1)
+  return ts, poses
+
 def transform_imu_to_lidar(transformation_matrices, translation_vector, rotation_matrix):
     # Create the transformation matrix from IMU to LiDAR
     imu_to_lidar_matrix = np.identity(4)
@@ -388,32 +434,91 @@ def write_poses(file_path, transformation_matrices, frame_indices):
 
 
 
+def get_trans_poses_from_imu_to_velodyne(imu_poses_file, vel_poses_file, save_to_file=False):
+    # Define the translation vector from IMU to LiDAR
+    translation_vector = np.array([0.81, 0.32, -0.83])
+
+    # Define the rotation matrix for a 180-degree rotation about the X-axis
+    rotation_matrix = np.array([[1, 0, 0],
+                                [0, -1, 0],
+                                [0, 0, -1]])
+
+    # Read the IMU poses
+    transformation_matrices = read_poses(imu_poses_file)
+
+    # Extract frame indices (assuming they are the first element in each line)
+    frame_indices = []
+    with open(imu_poses_file, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            frame_indices.append(line.split()[0])
+
+    # Transform IMU poses to LiDAR poses
+    lidar_poses = transform_imu_to_lidar(transformation_matrices, translation_vector, rotation_matrix)
+
+    # Save velodyne poses to file
+    if (save_to_file):
+        write_poses(vel_poses_file, lidar_poses, frame_indices)
+
+    return lidar_poses
 
 
-# from save_building_unlabeled_points.py
+def get_accum_colored_pc(raw_pc_path, label_path, velodyne_poses, labels_dict):
+    # List to hold all point cloud geometries
+    pcd_geometries = []
 
-# def read_poses(file_path):
-#     transformation_matrices = {}
+    # Iterate through frame numbers and load each point cloud
+    frame_num = 30          # TODO: Retrieve initial frame number of label
+    # last_min = 0            # TODO: remove?
+    total_labels = 6255     # TODO: Retrieve count of labels for this sequence
+    while frame_num <= total_labels:
+        raw_pc_frame_path = os.path.join(raw_pc_path, f'{frame_num:010d}.bin')
+        pc_frame_label_path = os.path.join(label_path, f'{frame_num:010d}.bin')
 
-#     with open(file_path, 'r') as file:
-#         for line in file:
-#             # Split the line into individual elements
-#             elements = line.strip().split()
-#             frame_index = int(elements[0])  # Frame index is the first element
+        # print(f"frame_num: {frame_num}")
+        pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, velodyne_poses, frame_num, labels_dict)
+        if pcd is not None:
+            # last_min = new_min    # TODO: remove?
+            # voxel_size = 0.0000001  # example voxel size
+            # pcd_ds = pcd.voxel_down_sample(voxel_size)
+            pcd_geometries.append(pcd)
+        frame_num += 100
 
-#             # Check if the line contains 16 elements for a 4x4 matrix
-#             if len(elements[1:]) == 16:
-#                 # Convert elements to float and reshape into 4x4 matrix
-#                 matrix_4x4 = np.array(elements[1:], dtype=float).reshape((4, 4))
-#             else:
-#                 # Otherwise, assume it is a 3x4 matrix and append a homogeneous row
-#                 matrix_3x4 = np.array(elements[1:], dtype=float).reshape((3, 4))
-#                 matrix_4x4 = np.vstack([matrix_3x4, np.array([0, 0, 0, 1])])
+    # Merge all point clouds in pcd_geometries into a single point cloud
+    merged_pcd = o3d.geometry.PointCloud()
+    for pcd in pcd_geometries:
+        merged_pcd += pcd
 
-#             # Store the matrix using the frame index as the key
-#             transformation_matrices[frame_index] = matrix_4x4
+    # # Save the merged point cloud to a PLY file
+    # output_file_path = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'  # Specify your output file path here
+    # o3d.io.write_point_cloud(output_file_path, merged_pcd)
 
-#     return transformation_matrices
+    # print(f"Saved merged point cloud to {output_file_path}")
+        
+    return merged_pcd
+
+def read_vel_poses(file_path):
+    transformation_matrices = {}
+
+    with open(file_path, 'r') as file:
+        for line in file:
+            # Split the line into individual elements
+            elements = line.strip().split()
+            frame_index = int(elements[0])  # Frame index is the first element
+
+            # Check if the line contains 16 elements for a 4x4 matrix
+            if len(elements[1:]) == 16:
+                # Convert elements to float and reshape into 4x4 matrix
+                matrix_4x4 = np.array(elements[1:], dtype=float).reshape((4, 4))
+            else:
+                # Otherwise, assume it is a 3x4 matrix and append a homogeneous row
+                matrix_3x4 = np.array(elements[1:], dtype=float).reshape((3, 4))
+                matrix_4x4 = np.vstack([matrix_3x4, np.array([0, 0, 0, 1])])
+
+            # Store the matrix using the frame index as the key
+            transformation_matrices[frame_index] = matrix_4x4
+
+    return transformation_matrices
 
 # def transform_point_cloud(pc, transformation_matrices, frame_number):
 #     if frame_number >= len(transformation_matrices):
