@@ -3,5 +3,6 @@ __pycache__/
 README.html
 *build/
 
+cache
 .DS_Store
 data/*
