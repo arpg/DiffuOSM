@@ -28,8 +28,8 @@ class PointAccumulation:
         self.baseDir = self.rootDir + "/data_3d_raw/" + self.sequenceName
         self.poseDir = self.rootDir + "/data_poses/" + self.sequenceName
         self.calibDir = self.rootDir + "/calibration"
-        self.superpcDir_static = self.rootDir + "/data_3d_semantics/" + self.sequenceName + "/static/"
-        self.superpcDir_dynamic = self.rootDir + "/data_3d_semantics/" + self.sequenceName + "/dynamic/"
+        self.superpcDir_static = self.rootDir + "/data_3d_semantics/train/" + self.sequenceName + "/static/"
+        self.superpcDir_dynamic = self.rootDir + "/data_3d_semantics/train/" + self.sequenceName + "/dynamic/"
         
         self.Tr_cam_pose = [] #cam0x -> pose
         self.Tr_cam_velo = np.empty((4,4)) #cam00 -> velo

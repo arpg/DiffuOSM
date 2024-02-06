@@ -3,17 +3,16 @@ import argparse
 import os 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-k", "--kitti_dir", default='/home/donceykong/kitti_360/KITTI-360', help="path to kitti360 dataset")
-parser.add_argument("-o", "--output_dir", default='/home/donceykong/kitti_360/recoverKITTI360label/recovered', help="path to output_dir")
-parser.add_argument("-s", "--sequence", default='2013_05_28_drive_0005_sync', help="sequence name")
-
+parser.add_argument("-k", "--kitti_dir", default='/home/donceykong/kitti_360/kitti360Scripts/data/KITTI-360', help="path to kitti360 dataset")
+parser.add_argument("-o", "--output_dir", default='/home/donceykong/kitti_360/kitti360Scripts/data/KITTI-360/data_3d_semantics/train/2013_05_28_drive_0000_sync/labels', help="path to output_dir")
+parser.add_argument("-s", "--sequence", default='2013_05_28_drive_0000_sync', help="sequence name")
 
 args = parser.parse_args()
 root_dir = args.kitti_dir
 output_dir = args.output_dir
 sequence = args.sequence
 
-all_spcds = os.listdir(os.path.join(os.path.join(os.path.join(root_dir,"data_3d_semantics"),sequence),"static"))
+all_spcds = os.listdir(os.path.join(os.path.join(os.path.join(root_dir,"data_3d_semantics/train/"),sequence),"static"))
 all_spcds.sort()
 for i in range(len(all_spcds)):
     spcd = all_spcds[i]
