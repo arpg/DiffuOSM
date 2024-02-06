@@ -46,10 +46,9 @@ def main():
     # args = parser.parse_args()
     # extractBuildingData(args.sequence)
 
-    # 0, 2-7, 9, 10
-    # for i in range(10):
-    #     print(i)
-    extractBuildingData(8)
+    seq_list = [0, 2, 3, 4, 5, 6, 7, 9, 10]
+    for seq in seq_list:
+        extractBuildingData(8)
   
 if __name__=="__main__": 
     main() 
