@@ -33,36 +33,23 @@ from extract_building_data import extractBuildingData
 # 5) Get extracted building points for each building seq
 #   5.1) Get extracted building points for each frame
 #   5.2) Get accum building points for each frame
-#   5.2) Get accum building points for each frame
-
-def get_kitti_data_path():
-    if 'KITTI360_DATASET' in os.environ:
-        kitti360Path = os.environ['KITTI360_DATASET']
-    else:
-        kitti360Path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..')
-    return kitti360Path
-            
-# def preprocess_and_save_data(seq = '0005'):
-#     if seq is None:
-#         print("No sequence selected for preprocessing. Please add sequence number in main module.")
-
-# def extract_and_save_building_points(seq = '0005'):
-#     if seq is None:
-#         print("No sequence selected for extracting training data. Please add sequence number in main module.")
+#   5.3) Get accum-scan building points for each frame
 
 def main(): 
-    parser = argparse.ArgumentParser(description='Process some integers.')
-    # parser.add_argument('--mode', choices=['rgb', 'semantic', 'instance', 'confidence', 'bbox'], default='semantic',
-    #                             help='The modality to visualize')
-    parser.add_argument('--sequence', type=int, default=5, help='The sequence to visualize')
-    # parser.add_argument('--max_bbox', type=int, default=100,
-    #                             help='The maximum number of bounding boxes to visualize')
+    # parser = argparse.ArgumentParser(description='Process some integers.')
+    # # parser.add_argument('--mode', choices=['rgb', 'semantic', 'instance', 'confidence', 'bbox'], default='semantic',
+    # #                             help='The modality to visualize')
+    # parser.add_argument('--sequence', type=int, default=5, help='The sequence to visualize')
+    # # parser.add_argument('--max_bbox', type=int, default=100,
+    # #                             help='The maximum number of bounding boxes to visualize')
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
+    # extractBuildingData(args.sequence)
 
+    # 0, 2-7, 9, 10
     # for i in range(10):
-    # extractBuildingData(i)
-    extractBuildingData(args.sequence)
+    #     print(i)
+    extractBuildingData(8)
   
 if __name__=="__main__": 
     main() 

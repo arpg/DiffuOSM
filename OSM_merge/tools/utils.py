@@ -177,12 +177,12 @@ def get_building_edge_bounds(building_list, radius=0.000008):
 
     return all_edge_circles
 
-def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, radius, add_last_scan_points = False):
+def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, radius):
     len_building_list = len(building_list)
     point_cloud_2D_kdtree = KDTree(np.asarray(point_cloud_2D.points))
     for iter, building in enumerate(building_list):
         iter += 1
-        print(f"Building: {iter} / {len_building_list}")
+        print(f"        --> Building: {iter} / {len_building_list}")
         for edge in building.expanded_edges:
             distances, indices = point_cloud_2D_kdtree.query([edge])
             
@@ -192,13 +192,13 @@ def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D,
             
             # Update building statistics based on the number of points within the radius
             building.times_hit += len(masked_points)
-            if (add_last_scan_points):
-                building.points.extend(masked_points)
-
+            building.accum_points.extend(masked_points)
+                
 def get_building_hit_list(building_list): 
     hit_building_list = []
     for build_iter, building in enumerate(building_list):
         if building.times_hit != 0:
+            building.times_hit = 0  # reset
             hit_building_list.append(building)
 
     hit_building_line_set = o3d.geometry.LineSet()
@@ -288,7 +288,7 @@ def get_transformed_point_cloud(pc, transformation_matrices, frame_number):
 
 def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number, labels_dict):
     if not os.path.exists(pc_filepath) or not os.path.exists(label_filepath):
-        print(f"File not found for frame number {frame_number}")
+        print(f"        --> File not found for frame number {frame_number}!")
         return None
 
     # read pointcloud bin files and label bin files
@@ -323,47 +323,47 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
 
     return colored_pcd
 
-# TODO: Remove and replace with above
-def load_and_visualize_OG(frame_number, transformation_matrices, labels_dict):
-    # Adjust file paths based on frame number
-    pc_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_raw/2013_05_28_drive_0005_sync/velodyne_points/data/{frame_number:010d}.bin'
-    label_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_semantics/train/2013_05_28_drive_0005_sync/labels/{frame_number:010d}.bin'
+# # TODO: Remove and replace with above
+# def load_and_visualize_OG(frame_number, transformation_matrices, labels_dict):
+#     # Adjust file paths based on frame number
+#     pc_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_raw/2013_05_28_drive_0005_sync/velodyne_points/data/{frame_number:010d}.bin'
+#     label_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_semantics/train/2013_05_28_drive_0005_sync/labels/{frame_number:010d}.bin'
     
-    if not os.path.exists(pc_filepath) or not os.path.exists(label_filepath):
-        print(f"File not found for frame number {frame_number}")
-        return None
+#     if not os.path.exists(pc_filepath) or not os.path.exists(label_filepath):
+#         print(f"File not found for frame number {frame_number}")
+#         return None
 
-    # read pointcloud bin files and label bin files
-    pc = read_bin_file(pc_filepath)
-    pc = get_transformed_point_cloud(pc, transformation_matrices, frame_number)
-    labels_np = read_label_bin_file(label_filepath)
+#     # read pointcloud bin files and label bin files
+#     pc = read_bin_file(pc_filepath)
+#     pc = get_transformed_point_cloud(pc, transformation_matrices, frame_number)
+#     labels_np = read_label_bin_file(label_filepath)
 
-    # boolean mask where True represents the labels to keep
-    label_mask = (labels_np == 11) | (labels_np == 0)
+#     # boolean mask where True represents the labels to keep
+#     label_mask = (labels_np == 11) | (labels_np == 0)
 
-    # mask to filter the point cloud and labels
-    # pc = pc[label_mask]
-    # labels_np = labels_np[label_mask]
+#     # mask to filter the point cloud and labels
+#     # pc = pc[label_mask]
+#     # labels_np = labels_np[label_mask]
 
-    # color the point cloud
-    colored_points = color_point_cloud(pc, labels_np, labels_dict)
-    colored_pcd = o3d.geometry.PointCloud()
+#     # color the point cloud
+#     colored_points = color_point_cloud(pc, labels_np, labels_dict)
+#     colored_pcd = o3d.geometry.PointCloud()
     
-    # Reshape pointcloud to fit in convertPointsToOxts function
-    pc_reshaped = np.array([np.eye(4) for _ in range(pc.shape[0])])
-    pc_reshaped[:, 0:3, 3] = pc[:, :3]
+#     # Reshape pointcloud to fit in convertPointsToOxts function
+#     pc_reshaped = np.array([np.eye(4) for _ in range(pc.shape[0])])
+#     pc_reshaped[:, 0:3, 3] = pc[:, :3]
 
-    # Convert to lat-lon-alt
-    pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
-    pc_lla = np.asarray(convertPointsToOxts(pc_reshaped))
+#     # Convert to lat-lon-alt
+#     pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
+#     pc_lla = np.asarray(convertPointsToOxts(pc_reshaped))
 
-    ave_alt = 226.60675 # Average altitude
-    pc_lla[:, 2] = (pc_lla[:, 2] - ave_alt)*0.00001
+#     ave_alt = 226.60675 # Average altitude
+#     pc_lla[:, 2] = (pc_lla[:, 2] - ave_alt)*0.00001
 
-    colored_pcd.points = o3d.utility.Vector3dVector(pc_lla[:, :3])  # Only use lat, lon, alt for geometry
-    colored_pcd.colors = o3d.utility.Vector3dVector(colored_points) # Set colors
+#     colored_pcd.points = o3d.utility.Vector3dVector(pc_lla[:, :3])  # Only use lat, lon, alt for geometry
+#     colored_pcd.colors = o3d.utility.Vector3dVector(colored_points) # Set colors
 
-    return colored_pcd
+#     return colored_pcd
 
 def load_xyz_positions(file_path):
     with open(file_path, 'r') as file:
@@ -463,15 +463,13 @@ def get_trans_poses_from_imu_to_velodyne(imu_poses_file, vel_poses_file, save_to
     return lidar_poses
 
 
-def get_accum_colored_pc(raw_pc_path, label_path, velodyne_poses, labels_dict):
+def get_accum_colored_pc(init_label, fin_label, raw_pc_path, label_path, velodyne_poses, labels_dict):
     # List to hold all point cloud geometries
     pcd_geometries = []
 
     # Iterate through frame numbers and load each point cloud
-    frame_num = 30          # TODO: Retrieve initial frame number of label
-    # last_min = 0            # TODO: remove?
-    total_labels = 6255     # TODO: Retrieve count of labels for this sequence
-    while frame_num <= total_labels:
+    frame_num = init_label         # TODO: Retrieve initial frame number of label
+    while frame_num <= fin_label:
         raw_pc_frame_path = os.path.join(raw_pc_path, f'{frame_num:010d}.bin')
         pc_frame_label_path = os.path.join(label_path, f'{frame_num:010d}.bin')
 

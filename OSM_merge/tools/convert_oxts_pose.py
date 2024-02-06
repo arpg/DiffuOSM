@@ -317,10 +317,10 @@ def process_osm_file(input_file, output_file):
     # Write the modified data to a new OSM file
     tree.write(output_file)
 
-'''
-testing
-'''
-# Example usage
-input_osm_file = '/Users/donceykong/Desktop/kitti360Scripts/data/map_0005.osm'
-output_osm_file = '/Users/donceykong/Desktop/kitti360Scripts/data/map_pose_0005.osm'
-process_osm_file(input_osm_file, output_osm_file)
+# '''
+# testing
+# '''
+# # Example usage
+# input_osm_file = '/Users/donceykong/Desktop/kitti360Scripts/data/map_0005.osm'
+# output_osm_file = '/Users/donceykong/Desktop/kitti360Scripts/data/map_pose_0005.osm'
+# process_osm_file(input_osm_file, output_osm_file)

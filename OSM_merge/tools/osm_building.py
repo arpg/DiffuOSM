@@ -8,4 +8,5 @@ class OSMBuilding:
         self.scan_num = 0
         self.times_hit = 0
         self.points = []
+        self.accum_points = []
 
