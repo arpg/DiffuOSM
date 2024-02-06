@@ -18,14 +18,15 @@ def parse_oxts_file(file_path):
 # Function to load all GPS data
 def load_gps_data(directory):
     all_gps_coords = []
-    for sub_dir in glob.glob(os.path.join(directory, '2013_05_28_drive_0002_sync/oxts/data/')):
+    # for i in range(10)
+    for sub_dir in glob.glob(os.path.join(directory, '2013_05_28_drive_0003_sync/oxts/data/')):
         for file_path in glob.glob(os.path.join(sub_dir, '*.txt')):
             gps_coords = parse_oxts_file(file_path)
             all_gps_coords.extend(gps_coords)
     return all_gps_coords
 
 # Directory containing your .txt files
-directory = '/home/donceykong/kitti_360/KITTI-360/data_poses/'
+directory = '/home/donceykong/kitti_360/kitti360Scripts/data/KITTI-360/data_poses'
 gps_data = load_gps_data(directory)
 print("GPS data read!")
 
