@@ -148,11 +148,17 @@ class extractBuildingData():
             kitti360Path = os.path.join(os.path.dirname(
                                 os.path.realpath(__file__)), '..','data/KITTI-360')
 
-        sequence = '2013_05_28_drive_%04d_sync' % seq
+        self.seq = seq
+        sequence = '2013_05_28_drive_%04d_sync' % self.seq
         self.kitti360Path = kitti360Path
         
         train_test = 'train'
-        if (seq==8 or seq==18): train_test = 'test'
+        if (self.seq==8 or self.seq==18): train_test = 'test'
+
+        # Used to create accumulated semantic pc (step 2) and extracting building edge points (step 6)
+        self.init_frame = 30
+        self.inc_frame = 5
+        self.fin_frame = 6255
 
         # 1) Create velodyne poses in world frame
         print("\n\n1) Create velodyne poses in world frame\n    |")
@@ -168,10 +174,14 @@ class extractBuildingData():
         print("\n\n2) Get accumulated points with labels \"building\" and \"unlabeled\" in lat-long frame\n    |")
         self.raw_pc_path  = os.path.join(kitti360Path, 'data_3d_raw', sequence, 'velodyne_points', 'data')
         self.label_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'labels')
+        self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_incframe_{self.inc_frame}.ply')
         self.labels_dict = {label.id: label.color for label in labels}         # Create a dictionary for label colors
-        init_label = 30
-        fin_label = 6255
-        self.accumulated_color_pc = get_accum_colored_pc(init_label, fin_label, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict)
+        if os.path.exists(self.accum_ply_path):
+            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} exists! Will be using.")
+            self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
+        else:
+            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} does not exists. Will be generating it now.")
+            self.accumulated_color_pc = get_accum_colored_pc(self.init_frame, self.fin_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
         # o3d.visualization.draw_geometries([self.accumulated_color_pc])
         print("     --> Done.\n")
 
@@ -202,7 +212,8 @@ class extractBuildingData():
         # 5) Filter buildings to be within threshold_dist of path
         print("\n\n5) Filter buildings to be within threshold_dist of path\n    |")
         threshold_dist = 0.0008
-        osm_file = 'map_%04d.osm' % seq
+        self.radius = threshold_dist*0.01
+        osm_file = 'map_%04d.osm' % self.seq
         self.osm_file_path = os.path.join(kitti360Path, 'data_osm', osm_file) 
         self.building_list, building_line_set = get_buildings_near_poses(self.osm_file_path, xyz_positions, threshold_dist)
         print("     --> Done.\n")
@@ -211,18 +222,32 @@ class extractBuildingData():
         print("\n\n6) Extract and save points corresponding to OSM building edges\n    |")
         self.extracted_building_data_dir = os.path.join(kitti360Path, 'data_3d_extracted', sequence, 'buildings')
         self.num_points_per_edge = 100
-        self.radius = 0.000008
-        self.init_frame = 30
-        self.inc_frame = 100
-        self.fin_frame = 6255
         self.extract_per_frame_building_edge_points()
         print("     --> Done.\n")
+
+    def save_building_edges(self, hit_building_list):
+        '''
+        Save building edges as np .bin file for each building that is hit by points during seq.
+        '''
+        for iter, hit_building in enumerate(hit_building_list):
+            iter += 1
+
+            building_edges_file = os.path.join(self.extracted_building_data_dir, 'per_building', f'build_{iter}_edges.bin')
+            with open(building_edges_file, 'wb') as bin_file:
+                np.array(hit_building.edges).tofile(bin_file)
+
+            building_accum_scan_file = os.path.join(self.extracted_building_data_dir, 'per_building', f'build_{iter}_accum.bin')
+            with open(building_accum_scan_file, 'wb') as bin_file:
+                np.array(hit_building.accum_points).tofile(bin_file)
 
     def extract_per_frame_building_edge_points(self):
         discretize_all_building_edges(self.building_list, self.num_points_per_edge)
         # TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
         calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.radius)
+
         hit_building_list, hit_building_line_set = get_building_hit_list(self.building_list)
+        self.save_building_edges(hit_building_list)
+        
         frame_num = self.init_frame
         while True:
             raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')

@@ -22,19 +22,6 @@ import argparse
 import os
 from extract_building_data import extractBuildingData
 
-# 1) Create vel poses txt for all sequences
-
-# 2) Create all data_oxsx
-
-# 3) Get labels for each frame in each seq
-
-# 4) Get osm for each seq
-
-# 5) Get extracted building points for each building seq
-#   5.1) Get extracted building points for each frame
-#   5.2) Get accum building points for each frame
-#   5.3) Get accum-scan building points for each frame
-
 def main(): 
     # parser = argparse.ArgumentParser(description='Process some integers.')
     # # parser.add_argument('--mode', choices=['rgb', 'semantic', 'instance', 'confidence', 'bbox'], default='semantic',
@@ -46,9 +33,10 @@ def main():
     # args = parser.parse_args()
     # extractBuildingData(args.sequence)
 
-    seq_list = [0, 2, 3, 4, 5, 6, 7, 9, 10]
-    for seq in seq_list:
-        extractBuildingData(8)
-  
+    # seq_list = [0, 2, 3, 4, 5, 6, 7, 9, 10]
+    # for seq in seq_list:
+    #     extractBuildingData(8)
+    extractBuildingData(5)
+
 if __name__=="__main__": 
     main() 
