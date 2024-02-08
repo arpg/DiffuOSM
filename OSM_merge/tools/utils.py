@@ -315,8 +315,8 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
     pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
     pc_lla = np.asarray(convertPointsToOxts(pc_reshaped))
 
-    ave_alt = 226.60675 # Average altitude
-    pc_lla[:, 2] = (pc_lla[:, 2] - ave_alt)*0.00001
+    # ave_alt = 226.60675 # Average altitude
+    pc_lla[:, 2] *= 0.00002 #(pc_lla[:, 2] - ave_alt)*0.00001
 
     colored_pcd.points = o3d.utility.Vector3dVector(pc_lla[:, :3])  # Only use lat, lon, alt for geometry
     colored_pcd.colors = o3d.utility.Vector3dVector(colored_points) # Set colors
@@ -463,13 +463,13 @@ def get_trans_poses_from_imu_to_velodyne(imu_poses_file, vel_poses_file, save_to
     return lidar_poses
 
 
-def get_accum_colored_pc(init_label, fin_label, raw_pc_path, label_path, velodyne_poses, labels_dict):
+def get_accum_colored_pc(init_frame, fin_frame, inc_frame, raw_pc_path, label_path, velodyne_poses, labels_dict, accum_ply_path):
     # List to hold all point cloud geometries
     pcd_geometries = []
 
     # Iterate through frame numbers and load each point cloud
-    frame_num = init_label         # TODO: Retrieve initial frame number of label
-    while frame_num <= fin_label:
+    frame_num = init_frame         # TODO: Retrieve initial frame number of label
+    while frame_num <= fin_frame:
         raw_pc_frame_path = os.path.join(raw_pc_path, f'{frame_num:010d}.bin')
         pc_frame_label_path = os.path.join(label_path, f'{frame_num:010d}.bin')
 
@@ -480,18 +480,16 @@ def get_accum_colored_pc(init_label, fin_label, raw_pc_path, label_path, velodyn
             # voxel_size = 0.0000001  # example voxel size
             # pcd_ds = pcd.voxel_down_sample(voxel_size)
             pcd_geometries.append(pcd)
-        frame_num += 100
+        frame_num += inc_frame
 
     # Merge all point clouds in pcd_geometries into a single point cloud
     merged_pcd = o3d.geometry.PointCloud()
     for pcd in pcd_geometries:
         merged_pcd += pcd
 
-    # # Save the merged point cloud to a PLY file
-    # output_file_path = '/Users/donceykong/Desktop/kitti360Scripts/data/output3D.ply'  # Specify your output file path here
-    # o3d.io.write_point_cloud(output_file_path, merged_pcd)
-
-    # print(f"Saved merged point cloud to {output_file_path}")
+    # Save the merged point cloud to a PLY file
+    o3d.io.write_point_cloud(accum_ply_path, merged_pcd)
+    print(f"        --> Saved merged point cloud to {accum_ply_path}")
         
     return merged_pcd
 
