@@ -3,8 +3,8 @@ import argparse
 import os 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-k", "--kitti_dir", default='/home/donceykong/kitti_360/kitti360Scripts/data/KITTI-360', help="path to kitti360 dataset")
-parser.add_argument("-o", "--output_dir", default='/home/donceykong/kitti_360/kitti360Scripts/data/KITTI-360/data_3d_semantics/train/2013_05_28_drive_0000_sync/labels', help="path to output_dir")
+parser.add_argument("-k", "--kitti_dir", default='/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360', help="path to kitti360 dataset")
+parser.add_argument("-o", "--output_dir", default='/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_semantics/train/2013_05_28_drive_0000_sync/labels', help="path to output_dir")
 parser.add_argument("-s", "--sequence", default='2013_05_28_drive_0000_sync', help="sequence name")
 
 args = parser.parse_args()
