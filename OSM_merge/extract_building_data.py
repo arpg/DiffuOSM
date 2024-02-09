@@ -157,7 +157,7 @@ class extractBuildingData():
 
         # Used to create accumulated semantic pc (step 2) and extracting building edge points (step 6)
         self.init_frame = 30
-        self.inc_frame = 5
+        self.inc_frame = 1
         self.fin_frame = 6255
 
         # 1) Create velodyne poses in world frame
