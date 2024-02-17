@@ -163,7 +163,7 @@ def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
         if building.geometry.geom_type == 'Polygon':
             exterior_coords = building.geometry.exterior.coords
             # Check if first building vertex is within path
-            if True:#building_within_bounds(exterior_coords[0], xyz_positions, threshold_dist): 
+            if building_within_bounds(exterior_coords[0], xyz_positions, threshold_dist): 
                 per_building_lines = []
                 for i in range(len(exterior_coords) - 1):
                     start_point = [exterior_coords[i][1], exterior_coords[i][0], 0]
@@ -223,10 +223,10 @@ def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D,
             building.times_hit += len(masked_points)
             building.accum_points.extend(masked_points)
                 
-def get_building_hit_list(building_list, min_scans): 
+def get_building_hit_list(building_list, min_edge_points): 
     hit_building_list = []
     for build_iter, building in enumerate(building_list):
-        if building.times_hit < min_scans:
+        if building.times_hit >= min_edge_points:
             building.times_hit = 0  # reset
             hit_building_list.append(building)
 

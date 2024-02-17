@@ -10,7 +10,7 @@ import numpy as np
 import open3d as o3d
 
 
-seq = 5
+seq = 0
 
 if 'KITTI360_DATASET' in os.environ:
     kitti360Path = os.environ['KITTI360_DATASET']
@@ -30,7 +30,7 @@ def plot_frame(per_frame_file, per_frame_accum_file, per_frame_diff_file):
     masked_points_frame = read_bin_file(per_frame_file)
     accum_points_frame = read_bin_file(per_frame_accum_file)
     diff_points_frame = read_bin_file(per_frame_diff_file)
-
+    
     masked_frame_pcd = o3d.geometry.PointCloud()
     accum_frame_pcd = o3d.geometry.PointCloud()
     diff_frame_pcd = o3d.geometry.PointCloud()

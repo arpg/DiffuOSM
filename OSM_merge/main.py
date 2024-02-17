@@ -11,21 +11,14 @@ import argparse
 import os
 from extract_building_data import extractBuildingData
 
-def main(): 
-    # parser = argparse.ArgumentParser(description='Process some integers.')
-    # # parser.add_argument('--mode', choices=['rgb', 'semantic', 'instance', 'confidence', 'bbox'], default='semantic',
-    # #                             help='The modality to visualize')
-    # parser.add_argument('--sequence', type=int, default=5, help='The sequence to visualize')
-    # # parser.add_argument('--max_bbox', type=int, default=100,
-    # #                             help='The maximum number of bounding boxes to visualize')
-
-    # args = parser.parse_args()
-    # extractBuildingData(args.sequence)
-
-    # seq_list = [0, 2, 3, 4, 5, 6, 7, 9, 10]
+def main():
+    seq_list = [0, 2, 3, 4, 5, 6, 7, 9, 10]
+    frame_inc = 100
     # for seq in seq_list:
-    #     extractBuildingData(8)
-    extractBuildingData(0)
+    #     extractBuildingData(seq, frame_inc)
+
+    # Just for testing
+    extractBuildingData(2, frame_inc)
 
 if __name__=="__main__": 
     main() 

@@ -34,7 +34,7 @@ def read_building_edges_file(building_edges_file):
     return edges_array
 
 def get_building_scan_pcd(seq, building_index):
-    per_building_dir = os.path.join(kitti360Path, 'data_3d_extracted', '2013_09_28_drive_%04d_sync' % seq, 'buildings/per_building')
+    per_building_dir = os.path.join(kitti360Path, 'data_3d_extracted', '2013_05_28_drive_%04d_sync' % seq, 'buildings/per_building')
     per_build_edges_file = os.path.join(per_building_dir, f'build_{building_index}_edges.bin', )
     per_build_file = os.path.join(per_building_dir, f'build_{building_index}_scan_{scan_num}.bin', )
     per_build_accum_file = os.path.join(per_building_dir, f'build_{building_index}_accum.bin' )
@@ -49,11 +49,15 @@ def get_building_scan_pcd(seq, building_index):
 
     build_points = np.array(build_points)
     build_points[:, 2] = build_points[:, 2] - np.min(build_points[:, 2])
+
     build_points_diff = np.array(build_points_diff)
-    if build_points_diff.size > 0:
-        build_points_diff[:, 2] = build_points_diff[:, 2] - np.min(build_points_diff[:, 2])
+    # if build_points_diff.size > 0:
+    #     build_points_diff[:, 2] = build_points_diff[:, 2] - np.min(build_points_diff[:, 2])
+    
     build_points_accum = np.array(build_points_accum)
-    build_points_accum[:, 2] = 0
+    # build_points_accum[:, 2] = 0
+
+    print(build_points_diff)
 
     build_points_pcd = o3d.geometry.PointCloud()
     build_edges_pcd = o3d.geometry.LineSet()
@@ -92,10 +96,10 @@ def change_frame(vis, key_code):
     global initial_span
 
     if key_code == ord('B')  and building_index < 105:
-        building_index += 10
+        building_index += 1
         scan_num = 1
     elif key_code == ord('O') and building_index > 95:
-        building_index -= 10
+        building_index -= 1
         scan_num = 1
 
     max_scan_num = get_max_scan_for_build(seq, building_index)
@@ -116,8 +120,9 @@ def change_frame(vis, key_code):
     vis.clear_geometries()
     vis.add_geometry(build_points_pcd)
     vis.add_geometry(build_edges_pcd)
-    vis.add_geometry(build_points_accum_pcd)
+    # vis.add_geometry(build_points_accum_pcd)
     vis.add_geometry(build_points_diff_pcd)
+    vis.add_geometry(build_points_accum_pcd)
 
     # Control where the visualizer looks at
     vis.get_view_control().set_lookat(center)
@@ -130,8 +135,8 @@ def change_frame(vis, key_code):
 
 initial_span = None
 scan_num = 1            # starting scan number
-building_index = 95     # Could cycle through and collect all edges, if desired. Buidling indeces begin at 1.
-seq = 5                 # starting sequence number
+building_index = 6     # Could cycle through and collect all edges, if desired. Buidling indeces begin at 1.
+seq = 0                 # starting sequence number
 def main(): 
     global initial_span
     build_points_pcd, build_edges_pcd, build_points_accum_pcd, build_points_diff_pcd, build_edges_span = get_building_scan_pcd(seq, building_index)
