@@ -226,7 +226,9 @@ class extractBuildingData():
         o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
         print("     --> Done.\n")
 
-        # 6) Extract and save points corresponding to OSM building edges
+        # 6) Remove edges on filtered buildings that are connected to other buildings. These are often just subsets of an entire building structure.
+
+        # 7) Extract and save points corresponding to OSM building edges
         print("\n\n6) Extract and save points corresponding to OSM building edges\n    |")
         self.extracted_building_data_dir = os.path.join(kitti360Path, 'data_3d_extracted', sequence, 'buildings')
         self.num_points_per_edge = 100
