@@ -199,11 +199,10 @@ def get_building_edge_bounds(building_list, radius=0.000008):
 
     return all_edge_circles
 
-def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, radius):
-    # # # boolean mask where True represents the labels to keep
+def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, label_filepath, radius):
+    # Filter buildings only hit by "building" points here
+    # labels_np = read_label_bin_file(label_filepath)
     # label_mask = (labels_np == 11) | (labels_np == 0)
-
-    # # # mask to filter the point cloud and labels
     # pc = np.asarray(point_cloud_3D.points)
     # pc = pc[label_mask]
     # labels_np = labels_np[label_mask]

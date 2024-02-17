@@ -265,7 +265,7 @@ class extractBuildingData():
     def extract_per_frame_building_edge_points(self):
         discretize_all_building_edges(self.building_list, self.num_points_per_edge)
         # TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
-        calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.radius)
+        calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.label_path, self.radius)
 
         hit_building_list, hit_building_line_set = get_building_hit_list(self.building_list)
         self.save_building_edges(hit_building_list)
