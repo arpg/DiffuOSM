@@ -27,6 +27,7 @@ Save per frame scan of building edges to KITTI-360/data_3d_extracted/2013_05_28_
 '''
 
 import os
+import glob
 import open3d as o3d
 from open3d.visualization import gui
 import numpy as np
@@ -155,10 +156,17 @@ class extractBuildingData():
         train_test = 'train'
         if (self.seq==8 or self.seq==18): train_test = 'test'
 
+        self.raw_pc_path  = os.path.join(kitti360Path, 'data_3d_raw', sequence, 'velodyne_points', 'data')
+        self.label_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'labels')
+
         # Used to create accumulated semantic pc (step 2) and extracting building edge points (step 6)
-        self.init_frame = 30
-        self.inc_frame = 1
-        self.fin_frame = 6255
+        self.inc_frame = 10
+
+        self.init_frame, self.fin_frame = self.find_min_max_file_names()
+        if self.init_frame is not None and self.fin_frame is not None:
+            print(f"Minimum file name (as int): {self.init_frame}, Maximum file name (as int): {self.fin_frame}")
+        else:
+            print("No .bin files found in the specified directory.")
 
         # 1) Create velodyne poses in world frame
         print("\n\n1) Create velodyne poses in world frame\n    |")
@@ -172,26 +180,24 @@ class extractBuildingData():
         
         # 2) Get accumulated points with labels "building" and "unlabeled" in lat-long frame
         print("\n\n2) Get accumulated points with labels \"building\" and \"unlabeled\" in lat-long frame\n    |")
-        self.raw_pc_path  = os.path.join(kitti360Path, 'data_3d_raw', sequence, 'velodyne_points', 'data')
-        self.label_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'labels')
         self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_incframe_{self.inc_frame}.ply')
         self.labels_dict = {label.id: label.color for label in labels}         # Create a dictionary for label colors
         if os.path.exists(self.accum_ply_path):
             print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} exists! Will be using.")
             self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
         else:
-            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} does not exists. Will be generating it now.")
+            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} does not exist. Will be generating it now.")
             self.accumulated_color_pc = get_accum_colored_pc(self.init_frame, self.fin_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
-        # o3d.visualization.draw_geometries([self.accumulated_color_pc])
         print("     --> Done.\n")
 
         # 3) Get 2D representation of accumulated_color_pc
         print("\n\n3) Get 2D representation of accumulated_color_pc\n    |")
-        accumulated_pc_3D = np.asarray(self.accumulated_color_pc.points)
-        points_2D = accumulated_pc_3D.copy()
+        points_2D = np.asarray(self.accumulated_color_pc.points)
         points_2D[:, 2] = 0
         self.accumulated_pc_2D = o3d.geometry.PointCloud()
         self.accumulated_pc_2D.points = o3d.utility.Vector3dVector(points_2D)
+        self.accumulated_pc_2D.colors = self.accumulated_color_pc.colors
+
         print("     --> Done.\n")
 
         # 4) Get imu in lat-long frame
@@ -216,6 +222,8 @@ class extractBuildingData():
         osm_file = 'map_%04d.osm' % self.seq
         self.osm_file_path = os.path.join(kitti360Path, 'data_osm', osm_file) 
         self.building_list, building_line_set = get_buildings_near_poses(self.osm_file_path, xyz_positions, threshold_dist)
+        # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
+        o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
         print("     --> Done.\n")
 
         # 6) Extract and save points corresponding to OSM building edges
@@ -225,6 +233,20 @@ class extractBuildingData():
         self.extract_per_frame_building_edge_points()
         print("     --> Done.\n")
 
+    def find_min_max_file_names(self):
+        # Pattern to match all .bin files in the directory
+        pattern = os.path.join(self.label_path, '*.bin')
+        # List all .bin files
+        files = glob.glob(pattern)
+        # Extract the integer part of the file names
+        file_numbers = [int(os.path.basename(file).split('.')[0]) for file in files]
+        # Find and return min and max
+        if file_numbers:  # Check if list is not empty
+            min_file, max_file = min(file_numbers), max(file_numbers)
+            return min_file, max_file
+        else:
+            return None, None
+        
     def save_building_edges(self, hit_building_list):
         '''
         Save building edges as np .bin file for each building that is hit by points during seq.
@@ -247,7 +269,7 @@ class extractBuildingData():
 
         hit_building_list, hit_building_line_set = get_building_hit_list(self.building_list)
         self.save_building_edges(hit_building_list)
-        
+        o3d.visualization.draw_geometries([self.accumulated_pc_2D, hit_building_line_set])
         frame_num = self.init_frame
         while True:
             raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')

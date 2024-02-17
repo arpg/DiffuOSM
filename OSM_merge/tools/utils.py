@@ -135,20 +135,42 @@ def building_within_bounds(building_vertex, xyz_positions, threshold):
     # print(f"min vert dist: {min_vert_dist}")
     return min_vert_dist <= threshold
 
+def get_all_buildings(osm_file_path):
+    buildings = ox.geometries_from_xml(osm_file_path, tags={'building': True})
+    # Process Buildings as LineSets
+    building_lines = []
+    for _, building in buildings.iterrows():
+        if building.geometry.type == 'Polygon':
+            exterior_coords = building.geometry.exterior.coords
+            for i in range(len(exterior_coords) - 1):
+                start_point = [exterior_coords[i][0], exterior_coords[i][1], 0]
+                end_point = [exterior_coords[i + 1][0], exterior_coords[i + 1][1], 0]
+                building_lines.append([start_point, end_point])
+
+    building_line_set = o3d.geometry.LineSet()
+    building_points = [point for line in building_lines for point in line]
+    building_lines_idx = [[i, i + 1] for i in range(0, len(building_points), 2)]
+    building_line_set.points = o3d.utility.Vector3dVector(building_points)
+    building_line_set.lines = o3d.utility.Vector2iVector(building_lines_idx)
+    building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
+    return building_lines, building_line_set
+
 def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
     building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
     building_list = []
+    building_lines = []
     for _, building in building_features.iterrows():
         if building.geometry.geom_type == 'Polygon':
             exterior_coords = building.geometry.exterior.coords
             # Check if first building vertex is within path
-            if building_within_bounds(exterior_coords[0], xyz_positions, threshold_dist): 
-                building_lines = []
+            if True:#building_within_bounds(exterior_coords[0], xyz_positions, threshold_dist): 
+                per_building_lines = []
                 for i in range(len(exterior_coords) - 1):
                     start_point = [exterior_coords[i][1], exterior_coords[i][0], 0]
                     end_point = [exterior_coords[i + 1][1], exterior_coords[i + 1][0], 0]
+                    per_building_lines.append([start_point, end_point])
                     building_lines.append([start_point, end_point])
-                new_building = osm_building.OSMBuilding(building_lines)
+                new_building = osm_building.OSMBuilding(per_building_lines)
                 building_list.append(new_building)
 
     building_line_set = o3d.geometry.LineSet()
@@ -178,6 +200,14 @@ def get_building_edge_bounds(building_list, radius=0.000008):
     return all_edge_circles
 
 def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, radius):
+    # # # boolean mask where True represents the labels to keep
+    # label_mask = (labels_np == 11) | (labels_np == 0)
+
+    # # # mask to filter the point cloud and labels
+    # pc = np.asarray(point_cloud_3D.points)
+    # pc = pc[label_mask]
+    # labels_np = labels_np[label_mask]
+
     len_building_list = len(building_list)
     point_cloud_2D_kdtree = KDTree(np.asarray(point_cloud_2D.points))
     for iter, building in enumerate(building_list):
@@ -267,9 +297,9 @@ def get_transform_matrices(file_path):
     return transformation_matrices
 
 def get_transformed_point_cloud(pc, transformation_matrices, frame_number):
-    if frame_number >= len(transformation_matrices):
-        print(f"Frame number {frame_number} is out of range.")
-        return None
+    # if frame_number >= len(transformation_matrices):
+    #     print(f"Frame number {frame_number} is out of range.")
+    #     return None
 
     # Get the transformation matrix for the current frame
     transformation_matrix = transformation_matrices.get(frame_number)
@@ -296,10 +326,10 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
     pc = get_transformed_point_cloud(pc, velodyne_poses, frame_number)
     labels_np = read_label_bin_file(label_filepath)
 
-    # boolean mask where True represents the labels to keep
-    label_mask = (labels_np == 11) | (labels_np == 0)
+    # # boolean mask where True represents the labels to keep
+    # label_mask = (labels_np == 11) | (labels_np == 0)
 
-    # mask to filter the point cloud and labels
+    # # mask to filter the point cloud and labels
     # pc = pc[label_mask]
     # labels_np = labels_np[label_mask]
 

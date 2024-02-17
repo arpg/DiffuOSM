@@ -34,7 +34,7 @@ def read_building_edges_file(building_edges_file):
     return edges_array
 
 def get_building_scan_pcd(seq, building_index):
-    per_building_dir = os.path.join(kitti360Path, 'data_3d_extracted', '2013_05_28_drive_%04d_sync' % seq, 'buildings/per_building')
+    per_building_dir = os.path.join(kitti360Path, 'data_3d_extracted', '2013_09_28_drive_%04d_sync' % seq, 'buildings/per_building')
     per_build_edges_file = os.path.join(per_building_dir, f'build_{building_index}_edges.bin', )
     per_build_file = os.path.join(per_building_dir, f'build_{building_index}_scan_{scan_num}.bin', )
     per_build_accum_file = os.path.join(per_building_dir, f'build_{building_index}_accum.bin' )

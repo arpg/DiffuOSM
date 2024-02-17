@@ -1,7 +1,7 @@
 import open3d as o3d
 import osmnx as ox
 
-osm_file_path = '/home/donceykong/Desktop/OSM_KITTI360/kitti360Scripts/data/map_0005.osm'
+osm_file_path = '/home/donceykong/kitti_360/kitti360Scripts/data/KITTI-360/data_osm/map_0009.osm'
 
 # Filter features for buildings and sidewalks
 buildings = ox.geometries_from_xml(osm_file_path, tags={'building': True})

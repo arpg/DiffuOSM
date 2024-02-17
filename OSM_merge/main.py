@@ -1,20 +1,9 @@
 """
 By: Doncey Albin
 
-
-Refactoring of kitti360scripts and recoverKitti repositories was made in order to create this pipeline.
-I couldn't have done it without them.
-    - kitti360scripts:
-    - recoverKitti:
-
-
-Preprosses data (A) and extract training data for diffusion-based inpainting (B).
-
-A) Preprosses data and transform it from world -> lat-long, as well as save it.
-    A.1) This includes lidar frames for each seq.
-
-B) Extract building points for each frame in each sequence, as well as save them.
-    B.1) Do the same for road points later.
+- Use building points to get hit_building_list & Only use buildings that have been hit on more than 3 times
+- Use only edges that accum points lie on for each building
+- Remove interior edges from buildings
 
 """
 
@@ -36,7 +25,7 @@ def main():
     # seq_list = [0, 2, 3, 4, 5, 6, 7, 9, 10]
     # for seq in seq_list:
     #     extractBuildingData(8)
-    extractBuildingData(5)
+    extractBuildingData(0)
 
 if __name__=="__main__": 
     main() 
