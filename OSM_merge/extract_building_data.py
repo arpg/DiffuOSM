@@ -269,7 +269,8 @@ class extractBuildingData():
         # TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
         calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.label_path, self.radius)
 
-        hit_building_list, hit_building_line_set = get_building_hit_list(self.building_list)
+        min_scans = 3
+        hit_building_list, hit_building_line_set = get_building_hit_list(self.building_list, min_scans)
         self.save_building_edges(hit_building_list)
         o3d.visualization.draw_geometries([self.accumulated_pc_2D, hit_building_line_set])
         frame_num = self.init_frame

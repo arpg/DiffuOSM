@@ -223,10 +223,10 @@ def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D,
             building.times_hit += len(masked_points)
             building.accum_points.extend(masked_points)
                 
-def get_building_hit_list(building_list): 
+def get_building_hit_list(building_list, min_scans): 
     hit_building_list = []
     for build_iter, building in enumerate(building_list):
-        if building.times_hit != 0:
+        if building.times_hit < min_scans:
             building.times_hit = 0  # reset
             hit_building_list.append(building)
 
