@@ -325,12 +325,12 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
     pc = get_transformed_point_cloud(pc, velodyne_poses, frame_number)
     labels_np = read_label_bin_file(label_filepath)
 
-    # # boolean mask where True represents the labels to keep
-    # label_mask = (labels_np == 11) | (labels_np == 0)
+    # boolean mask where True represents the labels to keep
+    label_mask = (labels_np == 11) | (labels_np == 0)
 
-    # # mask to filter the point cloud and labels
-    # pc = pc[label_mask]
-    # labels_np = labels_np[label_mask]
+    # mask to filter the point cloud and labels
+    pc = pc[label_mask]
+    labels_np = labels_np[label_mask]
 
     # color the point cloud
     colored_points = color_point_cloud(pc, labels_np, labels_dict)
