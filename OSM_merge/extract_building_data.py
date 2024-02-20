@@ -1,13 +1,6 @@
 '''
 By: Doncey Albin
 
-
-Refactoring of kitti360scripts and recoverKitti repositories was made in order to create this pipeline.
-I couldn't have done it without them.
-    - kitti360scripts:
-    - recoverKitti:
-
-
 Extract building points for each frame in each sequence, as well as save them.
 
 - Save per building scan/accumscan to KITTI-360/data_3d_extracted/2013_05_28_drive_{sequence}_sync/buildings/per_building/
@@ -58,7 +51,7 @@ def remove_overlapping_points(accum_points, frame_points):
     return np.array(filtered_frame_points)
 
 def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, frame_num, extracted_building_data_dir):
-    o3d.visualization.draw_geometries([new_pcd_3D])     # Visualize current scan
+    # o3d.visualization.draw_geometries([new_pcd_3D])     # Visualize current scan
 
     new_pcd_2D = np.copy(np.asarray(new_pcd_3D.points))
     new_pcd_2D[:, 2] = 0
@@ -103,7 +96,8 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
             masked_points_frame.extend(masked_points_building)
             accum_points_frame.extend(hit_building.accum_points)
     
-    diff_points_frame = remove_overlapping_points(accum_points_frame, masked_points_frame)
+    if len(masked_points_frame)>0:
+        diff_points_frame = remove_overlapping_points(accum_points_frame, masked_points_frame)
 
     masked_frame_pcd = o3d.geometry.PointCloud()
     accum_frame_pcd = o3d.geometry.PointCloud()
@@ -141,9 +135,10 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
         np.array(accum_points_frame).tofile(bin_file)
 
     ## Save difference as frame_{frame_num}_diffscan.bin
-    frame_builddiff_scan_file = os.path.join(extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_build_diff.bin')
-    with open(frame_builddiff_scan_file, 'wb') as bin_file:
-        np.array(diff_points_frame).tofile(bin_file)
+    if len(masked_points_frame)>0:
+        frame_builddiff_scan_file = os.path.join(extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_build_diff.bin')
+        with open(frame_builddiff_scan_file, 'wb') as bin_file:
+            np.array(diff_points_frame).tofile(bin_file)
 
 class extractBuildingData():
     # Constructor
@@ -183,31 +178,9 @@ class extractBuildingData():
         # TODO: Why is read_vel_poses different from read_poses? 
         # see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses()
         print("     --> Done.\n")
-        
-        # 2) Get accumulated points with labels "building" and "unlabeled" in lat-long frame
-        print("\n\n2) Get accumulated points with labels \"building\" and \"unlabeled\" in lat-long frame\n    |")
-        self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_incframe_{self.inc_frame}.ply')
-        self.labels_dict = {label.id: label.color for label in labels}         # Create a dictionary for label colors
-        if os.path.exists(self.accum_ply_path):
-            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} exists! Will be using.")
-            self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
-        else:
-            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} does not exist. Will be generating it now.")
-            self.accumulated_color_pc = get_accum_colored_pc(self.init_frame, self.fin_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
-        print("     --> Done.\n")
 
-        # 3) Get 2D representation of accumulated_color_pc
-        print("\n\n3) Get 2D representation of accumulated_color_pc\n    |")
-        points_2D = np.asarray(np.copy(self.accumulated_color_pc.points))
-        points_2D[:, 2] = 0
-        self.accumulated_pc_2D = o3d.geometry.PointCloud()
-        self.accumulated_pc_2D.points = o3d.utility.Vector3dVector(points_2D)
-        self.accumulated_pc_2D.colors = self.accumulated_color_pc.colors
-
-        print("     --> Done.\n")
-
-        # 4) Get imu in lat-long frame
-        print("\n\n4) Get imu in lat-long frame\n    |")
+        # 2) Get imu in lat-long frame
+        print("\n\n2) Get imu in lat-long frame\n    |")
         # TODO: clean up below
         [ts, poses] = loadPoses(self.imu_poses_file)
         poses = postprocessPoses(poses)
@@ -221,21 +194,54 @@ class extractBuildingData():
         xyz_point_clouds, xyz_positions = get_pointcloud_from_txt(oxts_pose_file_path) # Create point clouds from XYZ positions
         print("     --> Done.\n")
 
-        # 5) Filter buildings to be within threshold_dist of path
-        print("\n\n5) Filter buildings to be within threshold_dist of path\n    |")
+        # 3) Filter buildings to be within threshold_dist of path
+        print("\n\n3) Filter buildings to be within threshold_dist of path\n    |")
         threshold_dist = 0.0008
         self.radius = threshold_dist*0.01
         osm_file = 'map_%04d.osm' % self.seq
         self.osm_file_path = os.path.join(kitti360Path, 'data_osm', osm_file) 
         self.building_list, building_line_set = get_buildings_near_poses(self.osm_file_path, xyz_positions, threshold_dist)
-        # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
-        o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
         print("     --> Done.\n")
 
-        # 6) Remove edges on filtered buildings that are connected to other buildings. These are often just subsets of an entire building structure.
+        # 4) Remove edges on filtered buildings that are connected to other buildings. These are often just subsets of an entire building structure.
+
+
+        # 5) Get accumulated points with labels "building" and "unlabeled" in lat-long frame for every 1000 frames
+        min_frame = self.init_frame
+        max_frame = 1000
+        while True:
+            {do things}
+
+            min_frame = max_frame + 1
+            max_frame += 1000
+            if max_frame > self.fin_frame:
+                max_frame = self.fin_frame
+        
+        print("\n\n5) Get accumulated points with labels \"building\" and \"unlabeled\" in lat-long frame\n    |")
+        self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_incframe_{self.inc_frame}_.ply')
+        self.labels_dict = {label.id: label.color for label in labels}         # Create a dictionary for label colors
+        if os.path.exists(self.accum_ply_path):
+            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} exists! Will be using.")
+            self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
+        else:
+            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} does not exist. Will be generating it now.")
+            self.accumulated_color_pc = get_accum_colored_pc(self.init_frame, self.fin_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
+        print("     --> Done.\n")
+
+        # 6) Get 2D representation of accumulated_color_pc
+        print("\n\n6) Get 2D representation of accumulated_color_pc\n    |")
+        points_2D = np.asarray(np.copy(self.accumulated_color_pc.points))
+        points_2D[:, 2] = 0
+        self.accumulated_pc_2D = o3d.geometry.PointCloud()
+        self.accumulated_pc_2D.points = o3d.utility.Vector3dVector(points_2D)
+        self.accumulated_pc_2D.colors = self.accumulated_color_pc.colors
+        print("     --> Done.\n")
+
+        # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
+        # o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
 
         # 7) Extract and save points corresponding to OSM building edges
-        print("\n\n6) Extract and save points corresponding to OSM building edges\n    |")
+        print("\n\n7) Extract and save points corresponding to OSM building edges\n    |")
         self.extracted_building_data_dir = os.path.join(kitti360Path, 'data_3d_extracted', sequence, 'buildings')
         self.num_points_per_edge = 100
         self.extract_per_frame_building_edge_points()
@@ -278,9 +284,15 @@ class extractBuildingData():
         min_edge_points = 100
         hit_building_list, hit_building_line_set = get_building_hit_list(self.building_list, min_edge_points)
         self.save_building_edges(hit_building_list)
-        o3d.visualization.draw_geometries([self.accumulated_pc_2D, hit_building_line_set])
+        # o3d.visualization.draw_geometries([self.accumulated_pc_2D, hit_building_line_set])
+
+        # Send some of the big ass variables to garbage collection
+        del self.accumulated_pc_2D
+        del self.accumulated_color_pc
+        del self.building_list
+
         frame_num = self.init_frame
-        while True:
+        while True: 
             raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
             pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
             new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
