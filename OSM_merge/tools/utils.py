@@ -327,7 +327,7 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
 
     # boolean mask where True represents the labels to keep
     label_mask = (labels_np == 11) | (labels_np == 0)
-    building_label_mask = labels_np = 11
+    building_label_mask = (labels_np == 11)
 
     # find min point labeled as "building"
     pc_buildings = pc[building_label_mask]
