@@ -205,40 +205,42 @@ class extractBuildingData():
 
         # 4) Remove edges on filtered buildings that are connected to other buildings. These are often just subsets of an entire building structure.
 
-
         # 5) Get accumulated points with labels "building" and "unlabeled" in lat-long frame for every 1000 frames
+        discretize_all_building_edges(self.building_list, self.num_points_per_edge)
+        self.labels_dict = {label.id: label.color for label in labels}         # Create a dictionary for label colors
+
         min_frame = self.init_frame
         max_frame = 1000
         while True:
-            {do things}
+            # Get 3D accumulated color pc with labels "building" and "unlabeled"
+            self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_incframe_{self.inc_frame}_minframe_{min_frame}_maxframe{max_frame}.ply')
+            if os.path.exists(self.accum_ply_path):
+                print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} exists! Will be using.")
+                self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
+            else:
+                print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} does not exist. Will be generating it now.")
+                self.accumulated_color_pc = get_accum_colored_pc(self.init_frame, self.fin_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
+
+            # Get 2D representation of accumulated_color_pc
+            points_2D = np.asarray(np.copy(self.accumulated_color_pc.points))
+            points_2D[:, 2] = 0
+            self.accumulated_pc_2D = o3d.geometry.PointCloud()
+            self.accumulated_pc_2D.points = o3d.utility.Vector3dVector(points_2D)
+            self.accumulated_pc_2D.colors = self.accumulated_color_pc.colors
+
+            # TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
+            calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.label_path, self.radius)
+            # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
+            # o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
+
+            if last_batch:
+                break
 
             min_frame = max_frame + 1
             max_frame += 1000
-            if max_frame > self.fin_frame:
+            if max_frame >= self.fin_frame:
                 max_frame = self.fin_frame
-        
-        print("\n\n5) Get accumulated points with labels \"building\" and \"unlabeled\" in lat-long frame\n    |")
-        self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_incframe_{self.inc_frame}_.ply')
-        self.labels_dict = {label.id: label.color for label in labels}         # Create a dictionary for label colors
-        if os.path.exists(self.accum_ply_path):
-            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} exists! Will be using.")
-            self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
-        else:
-            print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} does not exist. Will be generating it now.")
-            self.accumulated_color_pc = get_accum_colored_pc(self.init_frame, self.fin_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
-        print("     --> Done.\n")
-
-        # 6) Get 2D representation of accumulated_color_pc
-        print("\n\n6) Get 2D representation of accumulated_color_pc\n    |")
-        points_2D = np.asarray(np.copy(self.accumulated_color_pc.points))
-        points_2D[:, 2] = 0
-        self.accumulated_pc_2D = o3d.geometry.PointCloud()
-        self.accumulated_pc_2D.points = o3d.utility.Vector3dVector(points_2D)
-        self.accumulated_pc_2D.colors = self.accumulated_color_pc.colors
-        print("     --> Done.\n")
-
-        # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
-        # o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
+                last_batch = True
 
         # 7) Extract and save points corresponding to OSM building edges
         print("\n\n7) Extract and save points corresponding to OSM building edges\n    |")
@@ -277,10 +279,9 @@ class extractBuildingData():
                 np.array(hit_building.accum_points).tofile(bin_file)
 
     def extract_per_frame_building_edge_points(self):
-        discretize_all_building_edges(self.building_list, self.num_points_per_edge)
-        # TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
-        calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.label_path, self.radius)
-
+        ''' 
+            Do this very last. Sequence accum cloud not needed.
+        '''
         min_edge_points = 100
         hit_building_list, hit_building_line_set = get_building_hit_list(self.building_list, min_edge_points)
         self.save_building_edges(hit_building_list)
@@ -291,6 +292,10 @@ class extractBuildingData():
         del self.accumulated_color_pc
         del self.building_list
 
+
+        ''' 
+            Do this very last. Sequence accum cloud not needed.
+        '''
         frame_num = self.init_frame
         while True: 
             raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
