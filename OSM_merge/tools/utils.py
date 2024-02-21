@@ -327,10 +327,20 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
 
     # boolean mask where True represents the labels to keep
     label_mask = (labels_np == 11) | (labels_np == 0)
+    building_label_mask = labels_np = 11
+
+    # find min point labeled as "building"
+    pc_buildings = pc[building_label_mask]
+    min_building_z_point = np.min(pc_buildings[:, 2])
 
     # mask to filter the point cloud and labels
-    pc = pc[label_mask]
+    pc = pc[label_mask] # TODO: also remove any points with a z-position below min_building_z_point
     labels_np = labels_np[label_mask]
+
+    # Also remove any points with a z-position below min_building_z_point
+    z_position_mask = pc[:, 2] >= min_building_z_point
+    pc = pc[z_position_mask]
+    labels_np = labels_np[z_position_mask]
 
     # color the point cloud
     colored_points = color_point_cloud(pc, labels_np, labels_dict)
