@@ -224,8 +224,8 @@ class extractBuildingData():
         discretize_all_building_edges(self.building_list, self.num_points_per_edge)
 
         min_frame = self.init_frame
-        max_frame = 1000
-        range_frames = 1000
+        max_frame = 500
+        range_frames = 500
         with open(monitor_file, 'a') as file:
             file.write(f'   4) Getting accumulated points with labels "building" and "unlabeled" in lat-long frame for every {range_frames} frames.\n')
 
@@ -239,7 +239,7 @@ class extractBuildingData():
                 file.write(f', begin: {curr_time_str}')
 
             # Get 3D accumulated color pc with labels "building" and "unlabeled"
-            self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_incframe_{self.inc_frame}_minframe_{min_frame}_maxframe{max_frame}.ply')
+            self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_minframe_{min_frame}_maxframe_{max_frame}_incframe_{self.inc_frame}_.ply')
             if os.path.exists(self.accum_ply_path):
                 print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} exists! Will be using.")
                 self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
