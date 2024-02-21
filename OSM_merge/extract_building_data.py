@@ -207,14 +207,15 @@ class extractBuildingData():
             file.write(f'         --> Output written to: %s\n' % oxts_pose_file_path)
 
         # 3) Filter buildings to be within threshold_dist of path
+        with open(monitor_file, 'a') as file:
+            file.write(f'   3) Filtering buildings to be within threshold_dist of path.\n')
         threshold_dist = 0.0008
         self.radius = threshold_dist*0.01
         osm_file = 'map_%04d.osm' % self.seq
         self.osm_file_path = os.path.join(kitti360Path, 'data_osm', osm_file) 
         self.building_list, building_line_set = get_buildings_near_poses(self.osm_file_path, xyz_positions, threshold_dist)
-
         with open(monitor_file, 'a') as file:
-            file.write(f'   3) Filtered buildings to be within threshold_dist of path.\n')
+            file.write(f'       - Resulted in {len(self.building_list)} buildings to be within threshold_dist of path.\n')
 
         # 4) Remove edges on filtered buildings that are connected to other buildings. These are often just subsets of an entire building structure.
 
@@ -224,8 +225,9 @@ class extractBuildingData():
 
         min_frame = self.init_frame
         max_frame = 1000
+        range_frames = 1000
         with open(monitor_file, 'a') as file:
-            file.write(f'   4) Get accumulated points with labels "building" and "unlabeled" in lat-long frame for every 1000 frames.\n')
+            file.write(f'   4) Getting accumulated points with labels "building" and "unlabeled" in lat-long frame for every {range_frames} frames.\n')
 
         while True:
             with open(monitor_file, 'a') as file:
@@ -238,7 +240,7 @@ class extractBuildingData():
                 self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
             else:
                 print(f"Ply file for sequence {self.seq} with inc {self.inc_frame} does not exist. Will be generating it now.")
-                self.accumulated_color_pc = get_accum_colored_pc(self.init_frame, self.fin_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
+                self.accumulated_color_pc = get_accum_colored_pc(min_frame, max_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
 
             # Get 2D representation of accumulated_color_pc
             points_2D = np.asarray(np.copy(self.accumulated_color_pc.points))
@@ -256,7 +258,7 @@ class extractBuildingData():
                 break
 
             min_frame = max_frame + 1
-            max_frame += 1000
+            max_frame += range_frames
             if max_frame >= self.fin_frame:
                 max_frame = self.fin_frame
                 last_batch = True
