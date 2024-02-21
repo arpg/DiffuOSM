@@ -294,7 +294,7 @@ class extractBuildingData():
         for iter, hit_building in enumerate(hit_building_list):
             iter += 1
 
-            building_edges_file = os.path.join(self.extracted_building_data_dir, 'per_building', f'build_{iter}_edges.bin')
+            building_edges_file = os.path.join(self.extracted_building_data_dir, 'hit_building_edges', f'build_{iter}_edges.bin')
             with open(building_edges_file, 'wb') as bin_file:
                 np.array(hit_building.edges).tofile(bin_file)
 
