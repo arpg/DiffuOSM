@@ -8,7 +8,7 @@ Extract building points for each frame in each sequence, as well as save them.
     - build_{build_num}_accumscan.bin
     - build_{build_num}_diffscan_{scan_num}.bin     (build_{build_num}_accumscan.bin - build_{build_num}_scan_{scan_num}.bin)
 
-Save per frame scan of building edges to KITTI-360/data_3d_extracted/2013_05_28_drive_0005_sync/buildings/per_frame/
+- Save per frame scan of building edges to KITTI-360/data_3d_extracted/2013_05_28_drive_0005_sync/buildings/per_frame/
     - frame_{frame_num}.bin
     - frame_{frame_num}_accumscan.bin
     - frame_{frame_num}_diffscan.bin                (frame_{frame_num}_accumscan.bin - frame_{frame_num}.bin)
