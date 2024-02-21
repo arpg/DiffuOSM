@@ -185,18 +185,17 @@ def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
 def discretize_all_building_edges(building_list, num_points_per_edge):
     for building in building_list:
         for edge in building.edges:
-            edge_points = np.linspace(edge[0], edge[1], num_points_per_edge, axis=0)
+            edge_points = np.linspace(edge.edge_vertices[0], edge.edge_vertices[1], num_points_per_edge, axis=0)
             for edge_point in edge_points:
-                building.expanded_edges.append(edge_point)
+                edge.expanded_vertices.append(edge_point)
     
 def get_building_edge_bounds(building_list, radius=0.000008):
     all_edge_circles = o3d.geometry.PointCloud()
     for building in building_list:
-            edge_points = building.expanded_edges
-            edge_circles = [create_circle(edge_point, radius) for edge_point in edge_points]  # Adjust radius as needed
-            for edge_circle in edge_circles:
-                all_edge_circles += edge_circle
-
+            for edge in building.edges:
+                edge_circles = [create_circle(edge_point, radius) for edge_point in edge.expanded_vertices]  # Adjust radius as needed
+                for edge_circle in edge_circles:
+                    all_edge_circles += edge_circle
     return all_edge_circles
 
 def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, label_filepath, radius):
@@ -212,22 +211,26 @@ def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D,
     for iter, building in enumerate(building_list):
         iter += 1
         print(f"        --> Building: {iter} / {len_building_list}")
-        for edge in building.expanded_edges:
-            distances, indices = point_cloud_2D_kdtree.query([edge])
-            
-            # Use a mask to filter 3D points that are within the XY radius from the edge point
-            mask = abs(distances) <= radius
-            masked_points = np.asarray(point_cloud_3D.points)[indices[mask]]
-            
-            # Update building statistics based on the number of points within the radius
-            building.times_hit += len(masked_points)
-            building.accum_points.extend(masked_points)
+        for edge in building.edges:
+            for expanded_edge in edge.expanded_vertices:
+                distances, indices = point_cloud_2D_kdtree.query([expanded_edge])
                 
-def get_building_hit_list(building_list, min_edge_points): 
+                # Use a mask to filter 3D points that are within the XY radius from the edge point
+                mask = abs(distances) <= radius
+                masked_points = np.asarray(point_cloud_3D.points)[indices[mask]]
+                
+                # Update building statistics based on the number of points within the radius
+                edge.times_hit += len(masked_points)
+                building.times_hit += len(masked_points)
+                building.accum_points.extend(masked_points)
+
+def get_building_hit_list(building_list, min_edges_hit): 
     hit_building_list = []
-    for build_iter, building in enumerate(building_list):
-        if building.times_hit >= min_edge_points:
-            building.times_hit = 0  # reset
+    for building in building_list:
+        for edge in building.edges:
+            if (edge.times_hit > 0):
+                building.edges_hit += 1
+        if building.edges_hit >= min_edges_hit:
             hit_building_list.append(building)
 
     hit_building_line_set = o3d.geometry.LineSet()
@@ -331,8 +334,11 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
 
     # find min point labeled as "building"
     pc_buildings = pc[building_label_mask]
-    min_building_z_point = np.min(pc_buildings[:, 2])
-
+    if (len(pc_buildings) > 0):
+        min_building_z_point = np.min(pc_buildings[:, 2])
+    else: 
+        return None
+    
     # mask to filter the point cloud and labels
     pc = pc[label_mask] # TODO: also remove any points with a z-position below min_building_z_point
     labels_np = labels_np[label_mask]
