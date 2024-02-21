@@ -223,9 +223,14 @@ class extractBuildingData():
         self.num_points_per_edge = 100
         discretize_all_building_edges(self.building_list, self.num_points_per_edge)
 
+        last_batch = False
         min_frame = self.init_frame
         max_frame = 500
         range_frames = 500
+        if max_frame >= self.fin_frame:
+            max_frame = self.fin_frame
+            last_batch = True
+
         with open(monitor_file, 'a') as file:
             file.write(f'   4) Getting accumulated points with labels "building" and "unlabeled" in lat-long frame for every {range_frames} frames.\n')
 
