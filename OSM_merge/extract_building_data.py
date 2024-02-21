@@ -143,7 +143,7 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
 
 class extractBuildingData():
     # Constructor
-    def __init__(self, seq=5, frame_inc=50, monitor_file):
+    def __init__(self, seq=5, frame_inc=50, monitor_file="./completed.txt"):
 
         if 'KITTI360_DATASET' in os.environ:
             kitti360Path = os.environ['KITTI360_DATASET']
