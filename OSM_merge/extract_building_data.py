@@ -231,7 +231,12 @@ class extractBuildingData():
 
         while True:
             with open(monitor_file, 'a') as file:
-                file.write(f'       - min_frame = {min_frame}, max_frame: {max_frame}\n')
+                file.write(f'       - min_frame = {min_frame}, max_frame: {max_frame}')
+
+            curr_time = datetime.now()
+            curr_time_str = curr_time.strftime('%Y-%m-%d %H:%M:%S')
+            with open(monitor_file, 'a') as file:
+                file.write(f', begin: {curr_time_str}')
 
             # Get 3D accumulated color pc with labels "building" and "unlabeled"
             self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_incframe_{self.inc_frame}_minframe_{min_frame}_maxframe{max_frame}.ply')
@@ -254,6 +259,11 @@ class extractBuildingData():
             # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
             # o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
 
+            curr_time = datetime.now()
+            curr_time_str = curr_time.strftime('%Y-%m-%d %H:%M:%S')
+            with open(monitor_file, 'a') as file:
+                file.write(f', finish: {curr_time_str}\n')
+            
             if last_batch:
                 break
 
