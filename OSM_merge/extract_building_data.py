@@ -98,6 +98,7 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
             masked_points_frame.extend(masked_points_building)
             accum_points_frame.extend(hit_building.accum_points)
     
+    diff_points_frame = []
     if len(masked_points_frame)>0:
         diff_points_frame = remove_overlapping_points(accum_points_frame, masked_points_frame)
 
@@ -133,7 +134,8 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
         np.array(accum_points_frame).tofile(bin_file)
 
     ## Save difference as frame_{frame_num}_diffscan.bin
-    if len(masked_points_frame)>0:
+    # TODO: check why using 'masked_points_frame' frame below results in err - hopefully using diff_points_frame fixes things.
+    if len(diff_points_frame)>0:
         frame_builddiff_scan_file = os.path.join(extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_build_diff.bin')
         with open(frame_builddiff_scan_file, 'wb') as bin_file:
             np.array(diff_points_frame).tofile(bin_file)
@@ -266,17 +268,18 @@ class extractBuildingData():
                 print(f"Ply file for sequence {self.seq} with minframe: {min_frame}, maxframe: {max_frame}, inc: {self.inc_frame} does not exist. Will be generating it now.")
                 self.accumulated_color_pc = get_accum_colored_pc(min_frame, max_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
 
-            # Get 2D representation of accumulated_color_pc
-            points_2D = np.asarray(np.copy(self.accumulated_color_pc.points))
-            points_2D[:, 2] = 0
-            self.accumulated_pc_2D = o3d.geometry.PointCloud()
-            self.accumulated_pc_2D.points = o3d.utility.Vector3dVector(points_2D)
-            self.accumulated_pc_2D.colors = self.accumulated_color_pc.colors
+            if self.get_accum_colored_pc is not None:
+                # Get 2D representation of accumulated_color_pc
+                points_2D = np.asarray(np.copy(self.accumulated_color_pc.points))
+                points_2D[:, 2] = 0
+                self.accumulated_pc_2D = o3d.geometry.PointCloud()
+                self.accumulated_pc_2D.points = o3d.utility.Vector3dVector(points_2D)
+                self.accumulated_pc_2D.colors = self.accumulated_color_pc.colors
 
-            # TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
-            calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.label_path, self.radius)
-            # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
-            # o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
+                # TODO: Maybe here would be a good point to do some sort of scan-matching so that the buildings and OSM-polygons are better aligned
+                calc_points_on_building_edges(self.building_list, self.accumulated_color_pc, self.accumulated_pc_2D, self.label_path, self.radius)
+                # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
+                # o3d.visualization.draw_geometries([self.accumulated_pc_2D, building_line_set])
 
             curr_time = datetime.now()
             curr_time_str = curr_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -303,17 +306,17 @@ class extractBuildingData():
         self.save_building_edges_and_accum()
         # o3d.visualization.draw_geometries([self.accumulated_pc_2D, hit_building_line_set])
 
-        # Send some of the big ass variables to garbage collection
-        del self.accumulated_pc_2D
-        del self.accumulated_color_pc
-        del self.building_list
+        # # Send some of the big ass variables to garbage collection
+        # del self.accumulated_pc_2D
+        # del self.accumulated_color_pc
+        # del self.building_list
 
 
-        # 7) Extract and save points corresponding to OSM building edges
-        with open(monitor_file, 'a') as file:
-            file.write(f'   6) Extracting and saving per-scan points corresponding to OSM building edges.\n')
+        # # 7) Extract and save points corresponding to OSM building edges
+        # with open(monitor_file, 'a') as file:
+        #     file.write(f'   6) Extracting and saving per-scan points corresponding to OSM building edges.\n')
 
-        self.extract_per_frame_building_edge_points()
+        # self.extract_per_frame_building_edge_points()
 
 
         # 8) Extraction complete for sequence
@@ -344,7 +347,7 @@ class extractBuildingData():
             iter += 1
             
             hit_building_edges = []
-            for edge in self.hit_building_list:
+            for edge in hit_building.edges:
                 hit_building_edges.append(edge.edge_vertices)
             hit_building_edges = np.array(hit_building_edges)
 

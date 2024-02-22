@@ -199,7 +199,7 @@ def get_building_edge_bounds(building_list, radius=0.000008):
     return all_edge_circles
 
 def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, label_filepath, radius):
-    # Filter buildings only hit by "building" points here
+    # Filter buildings only hit by "building" points here, so that pcd can contain all labels
     # labels_np = read_label_bin_file(label_filepath)
     # label_mask = (labels_np == 11) | (labels_np == 0)
     # pc = np.asarray(point_cloud_3D.points)
@@ -234,7 +234,8 @@ def get_building_hit_list(building_list, min_edges_hit):
             hit_building_list.append(building)
 
     hit_building_line_set = o3d.geometry.LineSet()
-    hit_building_points = [point for building in hit_building_list for line in building.edges for point in line]
+    hit_building_points = [point for building in hit_building_list for edge in building.edges for point in edge.edge_vertices]
+    # hit_building_points = [point for building in hit_building_list for line in building.edges for point in line]
     hit_building_lines_idx = []
     hit_building_lines_idx = [[i, i + 1] for i in range(0, len(hit_building_points) - 1, 2)]
     hit_building_line_set.points = o3d.utility.Vector3dVector(hit_building_points)
@@ -334,14 +335,15 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
 
     # find min point labeled as "building"
     pc_buildings = pc[building_label_mask]
-    if (len(pc_buildings) > 0):
-        min_building_z_point = np.min(pc_buildings[:, 2])
-    else: 
-        return None
-    
+
     # mask to filter the point cloud and labels
     pc = pc[label_mask] # TODO: also remove any points with a z-position below min_building_z_point
     labels_np = labels_np[label_mask]
+
+    if (len(pc_buildings) > 0):
+        min_building_z_point = np.min(pc_buildings[:, 2])
+    else: 
+        min_building_z_point = np.mean(pc[:, 2])
 
     # Also remove any points with a z-position below min_building_z_point
     z_position_mask = pc[:, 2] >= min_building_z_point
@@ -527,6 +529,7 @@ def get_accum_colored_pc(init_frame, fin_frame, inc_frame, raw_pc_path, label_pa
             pcd_geometries.append(pcd)
         frame_num += inc_frame
 
+    if 
     # Merge all point clouds in pcd_geometries into a single point cloud
     merged_pcd = o3d.geometry.PointCloud()
     for pcd in pcd_geometries:
