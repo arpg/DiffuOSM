@@ -115,6 +115,8 @@ def change_frame(vis, key_code, all_accum_frame_pcds, all_edge_pcds):
     global frame_max
     global frame_inc
     global frame
+    global ds_accum_points
+    global ds_accum_points_pcd
 
     if key_code == ord('N') and frame < frame_max:
         frame += frame_inc
@@ -124,21 +126,28 @@ def change_frame(vis, key_code, all_accum_frame_pcds, all_edge_pcds):
     files_exist, accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd = get_pcds(frame)
 
     if (files_exist):
+        voxel_size = 0.00005  # Define the voxel size, adjust this value based on your needs
+        ds_accum = accum_frame_pcd.voxel_down_sample(voxel_size)
+        ds_accum_points.extend(ds_accum.points)
+        ds_accum_points_pcd.points = o3d.utility.Vector3dVector(ds_accum_points)
+        ds_accum_points_pcd.paint_uniform_color([0, 0, 1])  # Blue color for accum frame points
+
         center = obs_points_pcd.get_center()
         axis_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.0001, origin=center)
         # extrinsic = np.eye(4)
         # extrinsic[:3, :3] = np.eye(3)
         # extrinsic[:3, 3] = center
 
-        # vis.clear_geometries()
+        vis.clear_geometries()
         # vis.add_geometry(all_accum_frame_pcds)
-        vis.add_geometry(all_edge_pcds)
-        # vis.add_geometry(unobs_edges_pcd)
-        # vis.add_geometry(obs_edges_pcd)
-        # vis.add_geometry(unobs_points_pcd)
+        # vis.add_geometry(all_edge_pcds)
+        vis.add_geometry(ds_accum_points_pcd)
+        vis.add_geometry(unobs_edges_pcd)
+        vis.add_geometry(obs_edges_pcd)
+        vis.add_geometry(unobs_points_pcd)
         vis.add_geometry(obs_points_pcd)
         vis.add_geometry(axis_frame)
-
+        
         # Control where the visualizer looks at
         vis.get_view_control().set_lookat(center)
         vis.get_view_control().set_front([-0.5, -0.3, 1])
@@ -151,7 +160,8 @@ frame_min = 30
 frame_max = 4000
 frame_inc = 25
 frame = frame_min
-
+ds_accum_points = []
+ds_accum_points_pcd = o3d.geometry.PointCloud()
 def main(): 
     all_accum_frame_pcds, all_edge_pcds = get_accum_pcds()
     voxel_size = 0.00001  # Define the voxel size, adjust this value based on your needs

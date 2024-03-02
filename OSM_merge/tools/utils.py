@@ -245,11 +245,55 @@ def get_building_hit_list(building_list, min_edges_hit):
     return hit_building_list, hit_building_line_set
 
 
+def read_building_pc_file(file_path):
+    point_cloud = np.fromfile(file_path)
+    return point_cloud.reshape(-1, 3)
 
+def read_building_edges_file(building_edges_file):
+    with open(building_edges_file, 'rb') as bin_file:
+        edges_array = np.fromfile(bin_file, dtype=float).reshape(-1, 2, 3)  # Reshape to 3D array
+    return edges_array
 
+def get_max_build_index(edges_accum_dir):
+    build_index = 1
+    while True:
+        build_pc_file = os.path.join(edges_accum_dir, f'build_{build_index}_accum.bin')
+        if os.path.exists(build_pc_file):
+            build_index += 1
+        else:
+            break
 
+    return build_index
 
+def get_building_hit_list_from_files(building_edgeaccum_dir):
+    hit_building_list = []
+    hit_build_edges_list = []
+    max_build_index = get_max_build_index(building_edgeaccum_dir)
 
+    for build_index in range(max_build_index-1):
+        build_index += 1
+        if build_index > max_build_index-1:
+            break
+
+        per_build_edges_file = os.path.join(building_edgeaccum_dir, f'build_{build_index}_edges.bin')
+        per_building_edges = read_building_edges_file(per_build_edges_file)
+        new_building = osm_building.OSMBuilding(per_building_edges)
+        hit_build_edges_list.append(per_building_edges.reshape(-1, 3))
+
+        per_build_accum_file = os.path.join(building_edgeaccum_dir, f'build_{build_index}_accum.bin')
+        per_building_accum_points = read_building_pc_file(per_build_accum_file)
+        new_building.accum_points = per_building_accum_points
+
+        hit_building_list.append(new_building)
+    
+    # hit_build_edges_list = np.array(hit_build_edges_list).reshape(-1, 3)
+    building_points = [point for line in hit_build_edges_list for point in line]
+    hit_building_lines_idx = [[i, i + 1] for i in range(0, len(building_points) - 1, 2)]
+    hit_building_line_set = o3d.geometry.LineSet()
+    hit_building_line_set.points = o3d.utility.Vector3dVector(building_points)
+    hit_building_line_set.lines = o3d.utility.Vector2iVector(hit_building_lines_idx)
+    
+    return hit_building_list, hit_building_line_set
 
 '''
 view_frame_semantics2.py
@@ -335,15 +379,14 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
 
     # find min point labeled as "building"
     pc_buildings = pc[building_label_mask]
-
-    # mask to filter the point cloud and labels
-    pc = pc[label_mask] # TODO: also remove any points with a z-position below min_building_z_point
-    labels_np = labels_np[label_mask]
-
     if (len(pc_buildings) > 0):
         min_building_z_point = np.min(pc_buildings[:, 2])
     else: 
-        min_building_z_point = np.mean(pc[:, 2])
+        return None
+    
+    # mask to filter the point cloud and labels
+    pc = pc[label_mask] # TODO: also remove any points with a z-position below min_building_z_point
+    labels_np = labels_np[label_mask]
 
     # Also remove any points with a z-position below min_building_z_point
     z_position_mask = pc[:, 2] >= min_building_z_point
@@ -529,15 +572,15 @@ def get_accum_colored_pc(init_frame, fin_frame, inc_frame, raw_pc_path, label_pa
             pcd_geometries.append(pcd)
         frame_num += inc_frame
 
-    if 
     # Merge all point clouds in pcd_geometries into a single point cloud
     merged_pcd = o3d.geometry.PointCloud()
     for pcd in pcd_geometries:
         merged_pcd += pcd
 
-    # Save the merged point cloud to a PLY file
-    o3d.io.write_point_cloud(accum_ply_path, merged_pcd)
-    print(f"        --> Saved merged point cloud to {accum_ply_path}")
+    if len(merged_pcd.points):
+        # Save the merged point cloud to a PLY file
+        o3d.io.write_point_cloud(accum_ply_path, merged_pcd)
+        print(f"        --> Saved merged point cloud to {accum_ply_path}")
         
     return merged_pcd
 

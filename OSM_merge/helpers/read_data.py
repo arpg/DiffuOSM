@@ -51,8 +51,7 @@ def get_building_scan_pcd(seq, building_index):
     build_points[:, 2] = build_points[:, 2] - np.min(build_points[:, 2])
 
     build_points_diff = np.array(build_points_diff)
-    # if build_points_diff.size > 0:
-    #     build_points_diff[:, 2] = build_points_diff[:, 2] - np.min(build_points_diff[:, 2])
+    build_points_diff[:, 2] = build_points_diff[:, 2] - np.min(build_points_diff[:, 2])
     
     build_points_accum = np.array(build_points_accum)
     # build_points_accum[:, 2] = 0
