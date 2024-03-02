@@ -26,6 +26,7 @@ from scipy.spatial import KDTree as scipyKDTree
 from scipy.spatial import cKDTree
 from datetime import datetime
 import math
+from concurrent.futures import ThreadPoolExecutor
 
 # Internal
 from tools.labels import labels
@@ -163,6 +164,14 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
             frame_unobs_points_file = os.path.join(extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_unobs_points.bin')
             with open(frame_unobs_points_file, 'wb') as bin_file:
                 np.array(unobserved_points_frame).tofile(bin_file)
+
+def extract_and_save_wrapper(frame_num, new_pcd, hit_building_list, radius, extracted_building_data_dir):
+    """
+    Wrapper function for extract_and_save_building_points to be used with threading.
+    """
+    print(f"        --> Extracting points from frame {frame_num}.")
+    extract_and_save_building_points(new_pcd, hit_building_list, radius, frame_num, extracted_building_data_dir)
+    print(f"        --> Extracted points from frame: {frame_num} that hit OSM building edges.")
 
 class extractBuildingData():
     # Constructor
@@ -400,23 +409,44 @@ class extractBuildingData():
             with open(building_accum_scan_file, 'wb') as bin_file:
                 np.array(hit_building.accum_points).tofile(bin_file)
 
+    # def extract_per_frame_building_edge_points(self):
+    #     frame_num = self.init_frame
+    #     while True:
+    #         frame_build_scan_file = os.path.join(self.extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_obs_points.bin')
+    #         if os.path.exists(frame_build_scan_file):
+    #             print(f"        --> Found existing extracted points from frame: {frame_num} that hit OSM building edges.")
+    #         else:
+    #             raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
+    #             pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+    #             new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
+
+    #             if new_pcd is not None:
+    #                 extract_and_save_building_points(new_pcd, self.hit_building_list, self.radius, frame_num, self.extracted_building_data_dir)
+    #                 print(f"        --> Extracted points from frame: {frame_num} that hit OSM building edges.")
+
+    #         frame_num += self.inc_frame
+
+    #         # Exit the loop all frames in sequence processed
+    #         if frame_num > self.fin_frame:  # Define the maximum frame number you want to process
+    #             break
+
     def extract_per_frame_building_edge_points(self):
         frame_num = self.init_frame
-        while True:
-            frame_build_scan_file = os.path.join(self.extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_obs_points.bin')
-            if os.path.exists(frame_build_scan_file):
-                print(f"        --> Found existing extracted points from frame: {frame_num} that hit OSM building edges.")
-            else:
-                raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
-                pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-                new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
+        # Initialize the ThreadPoolExecutor with the desired number of workers
+        with ThreadPoolExecutor() as executor:
+            while True:
+                frame_build_scan_file = os.path.join(self.extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_obs_points.bin')
+                if os.path.exists(frame_build_scan_file):
+                    print(f"        --> Found existing extracted points from frame: {frame_num} that hit OSM building edges.")
+                else:
+                    raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
+                    pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+                    new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
 
-                if new_pcd is not None:
-                    extract_and_save_building_points(new_pcd, self.hit_building_list, self.radius, frame_num, self.extracted_building_data_dir)
-                    print(f"        --> Extracted points from frame: {frame_num} that hit OSM building edges.")
+                    if new_pcd is not None:
+                        # Use executor to submit jobs to be processed in parallel
+                        executor.submit(extract_and_save_wrapper, frame_num, new_pcd, self.hit_building_list, self.radius, self.extracted_building_data_dir)
 
-            frame_num += self.inc_frame
-
-            # Exit the loop all frames in sequence processed
-            if frame_num > self.fin_frame:  # Define the maximum frame number you want to process
-                break
+                frame_num += self.inc_frame
+                if frame_num > self.fin_frame:  # Exit the loop all frames in sequence processed
+                    break

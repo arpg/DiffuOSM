@@ -156,9 +156,9 @@ def change_frame(vis, key_code, all_accum_frame_pcds, all_edge_pcds):
 
     return True
 
-frame_min = 30
-frame_max = 4000
-frame_inc = 25
+frame_min = 8613
+frame_max = 
+frame_inc = 1
 frame = frame_min
 ds_accum_points = []
 ds_accum_points_pcd = o3d.geometry.PointCloud()
