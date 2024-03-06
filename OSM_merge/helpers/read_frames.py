@@ -6,6 +6,7 @@ Readframes.py
 '''
 
 import os
+import glob
 import numpy as np
 import open3d as o3d
 
@@ -89,9 +90,9 @@ def get_accum_pcds():
     global frame
 
     frame = frame_min
-
     files_exist, accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd = get_pcds(frame)
 
+    print(f"files_exist: {files_exist} for frame {frame}")
     all_accum_frame_pcds = accum_frame_pcd
     all_edge_pcds = (obs_edges_pcd + unobs_edges_pcd)
 
@@ -156,13 +157,30 @@ def change_frame(vis, key_code, all_accum_frame_pcds, all_edge_pcds):
 
     return True
 
-frame_min = 8613
-frame_max = 
+def find_min_max_file_names(label_path):
+    # Pattern to match all .bin files in the directory
+    pattern = os.path.join(label_path, '*_accum_points.bin')
+
+    # List all .bin files
+    files = glob.glob(pattern)
+    print(f"files[0]: {os.path.basename(files[0]).split('_accum_points')}")
+
+    # Extract the integer part of the file names
+    file_numbers = [int(os.path.basename(file).split('_accum_points')[0]) for file in files]
+    # Find and return min and max
+    if file_numbers:  # Check if list is not empty
+        min_file, max_file = min(file_numbers), max(file_numbers)
+        return min_file, max_file
+    else:
+        return None, None
+
+frame_min, frame_max = find_min_max_file_names(per_frame_build)
+print(f"frame_min: {frame_min}, frame_max: {frame_max}")
 frame_inc = 1
 frame = frame_min
 ds_accum_points = []
 ds_accum_points_pcd = o3d.geometry.PointCloud()
-def main(): 
+def main():
     all_accum_frame_pcds, all_edge_pcds = get_accum_pcds()
     voxel_size = 0.00001  # Define the voxel size, adjust this value based on your needs
     all_accum_frame_pcds = all_accum_frame_pcds.voxel_down_sample(voxel_size)
