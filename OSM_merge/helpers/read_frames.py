@@ -20,8 +20,6 @@ else:
                         os.path.realpath(__file__)), '..','data/KITTI-360')
 
 sequence = '2013_05_28_drive_%04d_sync' % seq
-kitti360Path = kitti360Path
-    
 per_frame_build = os.path.join(kitti360Path, 'data_3d_extracted', sequence, 'buildings', 'per_frame')
 
 def read_bin_file(file_path):
@@ -92,7 +90,7 @@ def get_accum_pcds():
     frame = frame_min
     files_exist, accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd = get_pcds(frame)
 
-    print(f"files_exist: {files_exist} for frame {frame}")
+    # print(f"files_exist: {files_exist} for frame {frame}")
     all_accum_frame_pcds = accum_frame_pcd
     all_edge_pcds = (obs_edges_pcd + unobs_edges_pcd)
 
@@ -123,11 +121,11 @@ def change_frame(vis, key_code, all_accum_frame_pcds, all_edge_pcds):
         frame += frame_inc
     elif key_code == ord('P') and frame > frame_min:
         frame -= frame_inc
-    
+        
     files_exist, accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd = get_pcds(frame)
 
     if (files_exist):
-        voxel_size = 0.00005  # Define the voxel size, adjust this value based on your needs
+        voxel_size = 0.0001  # Define the voxel size, adjust this value based on your needs
         ds_accum = accum_frame_pcd.voxel_down_sample(voxel_size)
         ds_accum_points.extend(ds_accum.points)
         ds_accum_points_pcd.points = o3d.utility.Vector3dVector(ds_accum_points)
@@ -163,7 +161,7 @@ def find_min_max_file_names(label_path):
 
     # List all .bin files
     files = glob.glob(pattern)
-    print(f"files[0]: {os.path.basename(files[0]).split('_accum_points')}")
+    # print(f"files[0]: {os.path.basename(files[0]).split('_accum_points')}")
 
     # Extract the integer part of the file names
     file_numbers = [int(os.path.basename(file).split('_accum_points')[0]) for file in files]
@@ -175,7 +173,7 @@ def find_min_max_file_names(label_path):
         return None, None
 
 frame_min, frame_max = find_min_max_file_names(per_frame_build)
-print(f"frame_min: {frame_min}, frame_max: {frame_max}")
+# print(f"frame_min: {frame_min}, frame_max: {frame_max}")
 frame_inc = 1
 frame = frame_min
 ds_accum_points = []

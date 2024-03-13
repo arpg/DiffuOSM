@@ -433,21 +433,20 @@ class extractBuildingData():
 
     def extract_per_frame_building_edge_points(self):
         frame_num = self.init_frame
-        # Initialize the ThreadPoolExecutor with the desired number of workers
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor:
-        # with ProcessPoolExecutor() as process_executor:
-            while True:
-                frame_build_scan_file = os.path.join(self.extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_obs_points.bin')
-                if os.path.exists(frame_build_scan_file):
-                    print(f"        --> Found existing extracted points from frame: {frame_num} that hit OSM building edges.")
-                else:
-                    raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
-                    pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-                    new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
+        # with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
+        while True:
+            frame_build_scan_file = os.path.join(self.extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_obs_points.bin')
+            if os.path.exists(frame_build_scan_file):
+                print(f"        --> Found existing extracted points from frame: {frame_num} that hit OSM building edges.")
+            else:
+                raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
+                pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+                new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
 
-                    if new_pcd is not None:
-                        # Use executor to submit jobs to be processed in parallel
-                        thread_executor.submit(extract_and_save_wrapper, frame_num, new_pcd, self.hit_building_list, self.radius, self.extracted_building_data_dir)
-                frame_num += self.inc_frame
-                if frame_num > self.fin_frame:  # Exit the loop all frames in sequence processed
-                    break
+                if new_pcd is not None:
+                    extract_and_save_building_points(new_pcd, self.hit_building_list, self.radius, frame_num, self.extracted_building_data_dir)
+                    # Use executor to submit jobs to be processed in parallel
+                    # thread_executor.submit(extract_and_save_wrapper, frame_num, new_pcd, self.hit_building_list, self.radius, self.extracted_building_data_dir)
+            frame_num += self.inc_frame
+            if frame_num > self.fin_frame:  # Exit the loop all frames in sequence processed
+                break

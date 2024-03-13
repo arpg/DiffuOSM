@@ -15,8 +15,8 @@ import os
 from extract_building_data import extractBuildingData
 
 def main():
-    monitor_file = './extracted_0_2.txt'
-    seq_list = [0, 2] #[0, 2, 3, 4, 5, 7, 9, 10]
+    monitor_file = './extracted_all.txt'
+    seq_list = [0, 2, 3, 4, 5, 6, 7, 9, 10]
     frame_inc = 1
     for seq in seq_list:
         extractBuildingData(seq, frame_inc, monitor_file)
