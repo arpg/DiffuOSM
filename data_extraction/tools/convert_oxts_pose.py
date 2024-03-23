@@ -1,12 +1,17 @@
+'''
+Doncey Albin
+
+This contains functions from KITTI360Scripts. It combines functions from their utils.py,
+data.py, and convertPoseToOxts.py modules.
+
+'''
+
 import xml.etree.ElementTree as ET
 import os
 import numpy as np
 
 er = 6378137. # average earth radius at the equator
 
-'''
-utils.py
-'''
 def latlonToMercator(lat,lon,scale):
   ''' converts lat/lon coordinates to mercator coordinates using mercator scale '''
   mx = scale * lon * np.pi * er / 180
@@ -316,11 +321,3 @@ def process_osm_file(input_file, output_file):
 
     # Write the modified data to a new OSM file
     tree.write(output_file)
-
-# '''
-# testing
-# '''
-# # Example usage
-# input_osm_file = '/Users/donceykong/Desktop/kitti360Scripts/data/map_0005.osm'
-# output_osm_file = '/Users/donceykong/Desktop/kitti360Scripts/data/map_pose_0005.osm'
-# process_osm_file(input_osm_file, output_osm_file)
