@@ -175,7 +175,6 @@ def extract_and_save_wrapper(frame_num, new_pcd, hit_building_list, radius, extr
     print(f"        --> Extracted points from frame: {frame_num} that hit OSM building edges.")
 
 class extractBuildingData():
-    # Constructor
     def __init__(self, seq=5, frame_inc=1, monitor_file="./completed.txt"):
 
         if 'KITTI360_DATASET' in os.environ:
@@ -197,12 +196,13 @@ class extractBuildingData():
         if (self.seq==8 or self.seq==18): train_test = 'test'
 
         self.raw_pc_path  = os.path.join(kitti360Path, 'data_3d_raw', sequence, 'velodyne_points', 'data')
-        self.label_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'labels')
+        self.label_path = os.path.join(kitti360Path, 'data_3d_semantics', sequence, 'labels')
 
         # Used to create accumulated semantic pc (step 2) and extracting building edge points (step 6)
         self.inc_frame = frame_inc
         self.init_frame, self.fin_frame = self.find_min_max_file_names()
-
+        print(f"self.init_frame, self.fin_frame: {self.init_frame}, {self.fin_frame}")
+        
         # Create a dict to store all semantic labels
         self.labels_dict = {label.id: label.color for label in labels}         # Create a dictionary for label colors
 
@@ -279,6 +279,7 @@ class extractBuildingData():
 
             last_batch = False
             min_frame = self.init_frame
+            print(f"Min frame: {min_frame}")
             max_frame = math.ceil(min_frame / 500) * 500 # Round min_frame up to the nearest multiple of 500
             range_frames = 500
             if max_frame >= self.fin_frame:
