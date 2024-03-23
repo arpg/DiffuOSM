@@ -1,13 +1,6 @@
 """
 By: Doncey Albin
 
-- Save building edges as a pickle file (or bin) and do checking if it exist.
-- Use building points to get hit_building_list & Only use buildings that have been hit on more than 2 edges
-- Do batches of point accumulations
-
-
-- Remove interior edges from buildings
-
 """
 
 import argparse
@@ -20,9 +13,6 @@ def main():
     frame_inc = 1
     for seq in seq_list:
         extractBuildingData(seq, frame_inc, monitor_file)
-
-    # # Just for testing
-    # extractBuildingData(2, frame_inc)
 
 if __name__=="__main__": 
     main() 
