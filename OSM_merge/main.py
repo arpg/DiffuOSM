@@ -5,7 +5,7 @@ By: Doncey Albin
 
 import argparse
 import os
-from extract_building_data import extractBuildingData
+from tools.extract_building_data import extractBuildingData
 
 def main():
     monitor_file = './extracted_all.txt'
