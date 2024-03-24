@@ -182,6 +182,15 @@ def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
 
     return building_list, building_line_set
 
+def building_offset_to_o3d_lineset(building_list):
+    building_line_set = o3d.geometry.LineSet()
+    building_points = [point for building in building_list for edge in building.edges for point in edge.edge_vertices]
+    building_lines_idx = [[i, i + 1] for i in range(0, len(building_points) - 1, 2)]
+    building_line_set.points = o3d.utility.Vector3dVector(building_points)
+    building_line_set.lines = o3d.utility.Vector2iVector(building_lines_idx)
+    building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
+    return building_line_set
+
 def discretize_all_building_edges(building_list, num_points_per_edge):
     for building in building_list:
         for edge in building.edges:
