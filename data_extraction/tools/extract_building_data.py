@@ -174,7 +174,9 @@ class extractBuildingData():
         self.imu_poses_file = os.path.join(kitti360Path, 'data_poses', sequence_dir, 'poses.txt')               # Step 1
         self.velodyne_poses_file = os.path.join(kitti360Path, 'data_poses', sequence_dir, 'velodyne_poses.txt') # Step 1
         oxts_pose_file_path = os.path.join(kitti360Path, 'data_poses', sequence_dir, 'poses_latlong.txt')       # Step 2
-        
+        self.extracted_building_data_dir = os.path.join(kitti360Path, 'data_3d_extracted', sequence_dir, 'buildings')   # Step 3
+        building_edge_files = os.path.join(self.extracted_building_data_dir, 'per_building', 'edges_accum', f'build_1_edges.bin') # Step 3
+
         # Used to create accumulated semantic pc (step 2) and extracting building edge points (step 6)
         self.inc_frame = frame_inc
         self.init_frame, self.fin_frame = self.find_min_max_file_names()
@@ -206,19 +208,18 @@ class extractBuildingData():
         xyz_point_clouds, xyz_positions = get_pointcloud_from_txt(oxts_pose_file_path) # Create point clouds from XYZ positions:
         print(f'   Step 2) Transformed imu to lat-long frame.\n')
 
+        # 3) 
         '''
         If hit build egdes & accum points files exist for this seq, then use those and skip steps 1-4.
 
         Will still need:
         -  self.extracted_building_data_dir = os.path.join(kitti360Path, 'data_3d_extracted', sequence, 'buildings')
         '''
-        self.extracted_building_data_dir = os.path.join(kitti360Path, 'data_3d_extracted', sequence, 'buildings')
-        building_edge_files = os.path.join(self.extracted_building_data_dir, 'per_building', 'edges_accum', f'build_1_edges.bin')
         threshold_dist = 0.0008
         self.radius = threshold_dist*0.01
         if not os.path.exists(building_edge_files): # Only do extractions if below has not yet been done
             # 3) Filter buildings to be within threshold_dist of path
-            print(f'   3) Filtering buildings to be within threshold_dist of path and discretizing their edges.\n')
+            print(f'   Step 3) Filtering buildings to be within threshold_dist of path and discretizing their edges.\n')
             osm_file = 'map_%04d.osm' % self.seq
             self.osm_file_path = os.path.join(kitti360Path, 'data_osm', osm_file) 
             self.building_list, building_line_set = get_buildings_near_poses(self.osm_file_path, xyz_positions, threshold_dist)
@@ -326,10 +327,8 @@ class extractBuildingData():
     def find_min_max_file_names(self):
         # Pattern to match all .bin files in the directory
         pattern = os.path.join(self.label_path, '*.bin')
-        # List all .bin files
         files = glob.glob(pattern)
-        # Extract the integer part of the file names
-        file_numbers = [int(os.path.basename(file).split('.')[0]) for file in files]
+        file_numbers = [int(os.path.basename(file).split('.')[0]) for file in files] # integer part of the file names
         # Find and return min and max
         if file_numbers:  # Check if list is not empty
             min_file, max_file = min(file_numbers), max(file_numbers)
