@@ -38,18 +38,14 @@ def remove_overlapping_points(accum_points, frame_points):
     # Convert lists to numpy arrays for efficient computation
     accum_points_array = np.asarray(accum_points)
     frame_points_array = np.asarray(frame_points)
-    
-    # Initialize an empty list to hold filtered points
     filtered_frame_points = []
-    
-    # Use a KDTree for efficient nearest neighbor search
-    frame_points_kdtree = scipyKDTree(frame_points_array)
+    frame_points_kdtree = scipyKDTree(frame_points_array) # Use KD-tree for faster searching
     
     # Query each accum_point in the KDTree of frame_points
     # to check if there's an exact match (distance = 0)
     for accum_point in accum_points_array:
         distance, _ = frame_points_kdtree.query(accum_point)
-        if distance > 0:  # Use a small threshold instead of 0 for floating-point precision
+        if distance > 0:
             filtered_frame_points.append(accum_point)
     return np.array(filtered_frame_points)
 
@@ -98,7 +94,6 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
                 building_diff_scan_file = os.path.join(extracted_building_data_dir, 'per_building', 'diffscan', f'build_{iter}_diffscan_{hit_building.scan_num}.bin')
                 with open(building_diff_scan_file, 'wb') as bin_file:
                     np.array(diff_points_build).tofile(bin_file)
-                diff_points_frame.extend(diff_points_build)
 
             for edge in hit_building.edges:
                 if (edge.times_hit > 0): 
@@ -270,7 +265,7 @@ class extractBuildingData():
                     last_batch = True
 
             #   4.2) Getting hit building list and saving hit build egdes & accum points:
-            print(f'       4.2) Getting hit building list and saving hit build egdes & accum points.\n')
+            print(f'       Step 4.2) Getting hit building list and saving hit build egdes & accum points.\n')
                 
             min_edges_hit = 2 # TODO: Maybe this metric should be in the file name?
             self.hit_building_list, self.hit_building_line_set = get_building_hit_list(self.building_list, min_edges_hit)
@@ -288,11 +283,11 @@ class extractBuildingData():
             self.num_points_per_edge = 100
             discretize_all_building_edges(self.hit_building_list, self.num_points_per_edge)
 
-        # 7) Extract and save points corresponding to OSM building edges
-        print(f'   6) Extracting and saving per-scan points corresponding to OSM building edges.\n')
+        # 5) Extract and save points corresponding to OSM building edges
+        print(f'   Step 5) Extracting and saving per-scan points corresponding to OSM building edges.\n')
         self.extract_per_frame_building_edge_points()
 
-        # 8) Extraction complete for sequence
+        # 6) Extraction complete for sequence
         curr_time = datetime.now()
         curr_time_str = curr_time.strftime('%Y-%m-%d %H:%M:%S')
         print(f'Sequence {seq} completed. Timestamp: {curr_time_str}\n')
