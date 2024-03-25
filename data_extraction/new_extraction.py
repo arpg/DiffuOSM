@@ -5,14 +5,9 @@ import open3d as o3d
 from open3d.visualization import gui
 import numpy as np
 from collections import namedtuple
-# import osmnx as ox
-# from sklearn.neighbors import KDTree as sklearnKDTree
-# from scipy.spatial import KDTree as scipyKDTree
-# from scipy.spatial import cKDTree
-# from datetime import datetime
 import math
-# from concurrent.futures import ThreadPoolExecutor
-# from concurrent.futures import ProcessPoolExecutor
+
+
 import pyclipper # For OSM off-setting
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
@@ -50,12 +45,6 @@ class extractBuildingData():
 
         # # 1) Create velodyne poses in world frame
         self.imu_poses_file = os.path.join(kitti360Path, 'data_poses', sequence, 'poses.txt')
-
-        # self.velodyne_poses_file = os.path.join(kitti360Path, 'data_poses', sequence, 'velodyne_poses.txt')
-        # if not os.path.exists(self.velodyne_poses_file):
-        #     # print("\n\n1) Create velodyne poses in world frame\n    |")
-        #     self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, save_to_file=True)
-        # self.velodyne_poses = read_vel_poses(self.velodyne_poses_file) # This is okay for now ...
         
         # 2) Get imu in lat-long frame
         oxts_pose_file_path = os.path.join(kitti360Path, 'data_poses', sequence, 'poses_latlong.txt')
@@ -80,6 +69,8 @@ class extractBuildingData():
         self.osm_file_path = os.path.join(kitti360Path, 'data_osm', osm_file) 
         self.building_list, building_line_set = get_buildings_near_poses(self.osm_file_path, xyz_positions, threshold_dist)
 
+        # POLYGON OFFSET TESTING BELOW
+
         # vertices = [point for edge in self.building_list[0].edges for point in edge.edge_vertices]
         # print(f"vertices = {vertices}")
         # polygon = Polygon(vertices) # Create a Shapely Polygon object
@@ -93,7 +84,7 @@ class extractBuildingData():
         # print(f"Solution: {offset_exterior_coords_with_z}")
 
         # Extract vertices from edges and scale them
-        scale_factor = 9999999999 #6378137  # Choose a suitable scale factor
+        scale_factor = 6378137  # Choose a suitable scale factor
         scaled_vertices = [[int(point[0] * scale_factor), int(point[1] * scale_factor)] 
                         for edge in self.building_list[0].edges 
                         for point in edge.edge_vertices]
@@ -119,29 +110,8 @@ class extractBuildingData():
         building_offset_line_set.lines = o3d.utility.Vector2iVector(building_offset_lines_idx)
         building_offset_line_set.paint_uniform_color([1, 0, 0])  # Red color for building offset
 
-        # subj = ((180, 200), (260, 200), (260, 150), (180, 150))
-        # print(f"subj = {subj}")
-        # pco = pyclipper.PyclipperOffset()
-        # pco.AddPath(subj, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-        # solution = pco.Execute(-self.radius)
-        # print(f"Solution: {solution}")
-
         # building_line_set = building_list_to_o3d_lineset([self.building_list])
         o3d.visualization.draw_geometries([building_line_set])
-
-        # discretize_all_building_edges(self.building_list, self.num_points_per_edge)
-
-        # accum_points = []
-        # for building in self.hit_building_list:
-        #     build_accum_leveled = building.accum_points
-        #     build_accum_leveled[:, 2] -= np.min(build_accum_leveled[:, 2])
-        #     accum_points.extend(build_accum_leveled)
-
-        # build_points_accum = np.array(accum_points).reshape(-1, 3)
-        # accum_frame_pcd = o3d.geometry.PointCloud()
-        # accum_frame_pcd.points = o3d.utility.Vector3dVector(build_points_accum)
-        # accum_frame_pcd.paint_uniform_color([0, 1, 0.5])
-        # o3d.visualization.draw_geometries([self.hit_building_line_set, accum_frame_pcd])
 
     def find_min_max_file_names(self):
         # Pattern to match all .bin files in the directory
