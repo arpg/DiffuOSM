@@ -3,12 +3,13 @@ By: Doncey Albin
 
 Extract building points for each frame in each sequence, as well as save them.
 
-- Save per building scan/accumscan to KITTI-360/data_3d_extracted/2013_05_28_drive_{sequence}_sync/buildings/per_building/
+Save per-building /accumscan for full sequence and scan/diffscan for each frame to: 
+KITTI-360/data_3d_extracted/2013_05_28_drive_{sequence}_sync/buildings/per_building/
     - build_{build_num}_scan_{scan_num}.bin
     - build_{build_num}_accumscan.bin
     - build_{build_num}_diffscan_{scan_num}.bin     (build_{build_num}_accumscan.bin - build_{build_num}_scan_{scan_num}.bin)
 
-- Save per frame scan of building edges to KITTI-360/data_3d_extracted/2013_05_28_drive_0005_sync/buildings/per_frame/
+- Save per frame scan of building edges to KITTI-360/data_3d_extracted/2013_05_28_drive_{seq}_sync/buildings/per_frame/
     - frame_{frame_num}.bin
     - frame_{frame_num}_accumscan.bin
     - frame_{frame_num}_diffscan.bin                (frame_{frame_num}_accumscan.bin - frame_{frame_num}.bin)
@@ -61,8 +62,6 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
     point_cloud_2D = o3d.geometry.PointCloud()
     point_cloud_2D.points = o3d.utility.Vector3dVector(new_pcd_2D)
 
-    len_hit_building_list = len(hit_building_list)
-
     point_cloud_2D_kdtree = sklearnKDTree(np.asarray(point_cloud_2D.points))
     unobserved_edges_frame = []
     observed_edges_frame = []
@@ -71,7 +70,6 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
     unobserved_points_frame = []
     for iter, hit_building in enumerate(hit_building_list):
         iter += 1
-        # print(f"    - Hit Building: {iter} / {len_hit_building_list}")
         masked_points_building = []
         for edge in hit_building.edges:
             edge.times_hit = 0
@@ -87,23 +85,20 @@ def extract_and_save_building_points(new_pcd_3D, hit_building_list, radius, fram
         
         # Only if current building is hit by current scan
         if len(masked_points_building) > 0:
-            # hit_building.scan_num += 1
-            # # masked_frame_pcd = o3d.geometry.PointCloud()
-            # # masked_frame_pcd.points = o3d.utility.Vector3dVector(masked_points_building)
-            # # masked_frame_pcd.paint_uniform_color([1, 0, 0]) # Red color for frame building points
-            # # o3d.visualization.draw_geometries([masked_frame_pcd])
+            # Below is per-building extraction
 
-            # # Save hit_building.points as .bin file
-            # building_scan_file = os.path.join(extracted_building_data_dir, 'per_building', 'scan', f'build_{iter}_scan_{hit_building.scan_num}.bin')
-            # with open(building_scan_file, 'wb') as bin_file:
-            #     np.array(masked_points_building).tofile(bin_file)
+            # Save per-build current scan points
+            building_scan_file = os.path.join(extracted_building_data_dir, 'per_building', 'scan', f'build_{iter}_scan_{hit_building.scan_num}.bin')
+            with open(building_scan_file, 'wb') as bin_file:
+                np.array(masked_points_building).tofile(bin_file)
 
-            # diff_points_build = remove_overlapping_points(hit_building.accum_points, masked_points_building)
-            # if len(diff_points_build) > 0:
-            #     building_diff_scan_file = os.path.join(extracted_building_data_dir, 'per_building', 'diffscan', f'build_{iter}_diffscan_{hit_building.scan_num}.bin')
-            #     with open(building_diff_scan_file, 'wb') as bin_file:
-            #         np.array(diff_points_build).tofile(bin_file)
-            #     diff_points_frame.extend(diff_points_build)
+            # Save per-build diff points
+            diff_points_build = remove_overlapping_points(hit_building.accum_points, masked_points_building)
+            if len(diff_points_build) > 0:
+                building_diff_scan_file = os.path.join(extracted_building_data_dir, 'per_building', 'diffscan', f'build_{iter}_diffscan_{hit_building.scan_num}.bin')
+                with open(building_diff_scan_file, 'wb') as bin_file:
+                    np.array(diff_points_build).tofile(bin_file)
+                diff_points_frame.extend(diff_points_build)
 
             for edge in hit_building.edges:
                 if (edge.times_hit > 0): 
@@ -164,20 +159,18 @@ class extractBuildingData():
         self.seq = seq
         sequence_dir = '2013_05_28_drive_%04d_sync' % self.seq
         self.kitti360Path = kitti360Path
-        
-        # train_test = 'train'
-        # if (self.seq==8 or self.seq==18): train_test = 'test'
 
         # File Paths
         self.raw_pc_path  = os.path.join(kitti360Path, 'data_3d_raw', sequence_dir, 'velodyne_points', 'data')  #
-        self.label_path = os.path.join(kitti360Path, 'data_3d_semantics', sequence_dir, 'labels')               #
+        self.semantics_dir_path = os.path.join(kitti360Path, 'data_3d_semantics', sequence_dir)                 #
+        self.label_path = os.path.join(self.semantics_dir_path, 'labels')                                       #
         self.imu_poses_file = os.path.join(kitti360Path, 'data_poses', sequence_dir, 'poses.txt')               # Step 1
         self.velodyne_poses_file = os.path.join(kitti360Path, 'data_poses', sequence_dir, 'velodyne_poses.txt') # Step 1
         oxts_pose_file_path = os.path.join(kitti360Path, 'data_poses', sequence_dir, 'poses_latlong.txt')       # Step 2
         self.extracted_building_data_dir = os.path.join(kitti360Path, 'data_3d_extracted', sequence_dir, 'buildings')   # Step 3
         building_edge_files = os.path.join(self.extracted_building_data_dir, 'per_building', 'edges_accum', f'build_1_edges.bin') # Step 3
 
-        # Used to create accumulated semantic pc (step 2) and extracting building edge points (step 6)
+        # Used in Step 2, Step 4, and the final step, Step 6
         self.inc_frame = frame_inc
         self.init_frame, self.fin_frame = self.find_min_max_file_names()
         print(f"self.init_frame, self.fin_frame: {self.init_frame}, {self.fin_frame}")
@@ -208,13 +201,8 @@ class extractBuildingData():
         xyz_point_clouds, xyz_positions = get_pointcloud_from_txt(oxts_pose_file_path) # Create point clouds from XYZ positions:
         print(f'   Step 2) Transformed imu to lat-long frame.\n')
 
-        # 3) 
-        '''
-        If hit build egdes & accum points files exist for this seq, then use those and skip steps 1-4.
-
-        Will still need:
-        -  self.extracted_building_data_dir = os.path.join(kitti360Path, 'data_3d_extracted', sequence, 'buildings')
-        '''
+        # 3) Get list of all buildings hit have been hit during the sequence to reduce overall search per scan
+        # If hit build egdes & accum points files exist for this seq, then use those and skip steps 1-4.
         threshold_dist = 0.0008
         self.radius = threshold_dist*0.01
         if not os.path.exists(building_edge_files): # Only do extractions if below has not yet been done
@@ -234,9 +222,8 @@ class extractBuildingData():
 
             last_batch = False
             min_frame = self.init_frame
-            print(f"Min frame: {min_frame}")
-            max_frame = math.ceil(min_frame / 500) * 500 # Round min_frame up to the nearest multiple of 500
-            range_frames = 500
+            batch_size = 500
+            max_frame = math.ceil(min_frame / batch_size) * batch_size # Round min_frame up to the nearest multiple of batch size
             if max_frame >= self.fin_frame:
                 max_frame = self.fin_frame
                 last_batch = True
@@ -248,15 +235,13 @@ class extractBuildingData():
                 print(f', begin: {curr_time_str}')
 
                 # Get 3D accumulated color pc with labels "building" and "unlabeled"
-                self.accum_ply_path = os.path.join(kitti360Path, 'data_3d_semantics', train_test, sequence, 'accum_ply', f'output3D_minframe_{min_frame}_maxframe_{max_frame}_incframe_{self.inc_frame}.ply')
+                self.accum_ply_path = os.path.join(self.semantics_dir_path, 'accum_ply', f'output3D_minframe_{min_frame}_maxframe_{max_frame}_incframe_{self.inc_frame}.ply')
                 if os.path.exists(self.accum_ply_path):
                     print(f"Ply file for sequence {self.seq} with minframe: {min_frame}, maxframe: {max_frame}, inc: {self.inc_frame} exists! Will be using.")
                     self.accumulated_color_pc = o3d.io.read_point_cloud(self.accum_ply_path)
                 else:
                     print(f"Ply file for sequence {self.seq} with minframe: {min_frame}, maxframe: {max_frame}, inc: {self.inc_frame} does not exist. Will be generating it now.")
                     self.accumulated_color_pc = get_accum_colored_pc(min_frame, max_frame, self.inc_frame, self.raw_pc_path, self.label_path, self.velodyne_poses, self.labels_dict, self.accum_ply_path)
-
-                # o3d.visualization.draw_geometries([self.accumulated_color_pc, building_line_set])
                 
                 if len(self.accumulated_color_pc.points)>0:
                     # Get 2D representation of accumulated_color_pc
@@ -279,7 +264,7 @@ class extractBuildingData():
                     break
 
                 min_frame = max_frame + 1
-                max_frame += range_frames
+                max_frame += batch_size
                 if max_frame >= self.fin_frame:
                     max_frame = self.fin_frame
                     last_batch = True
@@ -292,7 +277,7 @@ class extractBuildingData():
             self.save_building_edges_and_accum()
             # o3d.visualization.draw_geometries([self.accumulated_pc_2D, hit_building_line_set])
 
-            # # Send some of the big ass variables to garbage collection
+            # # TODO: Send some of the big-ass variables to garbage collection (Necessary?)
             # del self.accumulated_pc_2D
             # del self.accumulated_color_pc
             # del self.building_list
@@ -302,18 +287,6 @@ class extractBuildingData():
             self.hit_building_list, self.hit_building_line_set = get_building_hit_list_from_files(building_edgeaccum_dir)
             self.num_points_per_edge = 100
             discretize_all_building_edges(self.hit_building_list, self.num_points_per_edge)
-
-        # accum_points = []
-        # for building in self.hit_building_list:
-        #     build_accum_leveled = building.accum_points
-        #     build_accum_leveled[:, 2] -= np.min(build_accum_leveled[:, 2])
-        #     accum_points.extend(build_accum_leveled)
-
-        # build_points_accum = np.array(accum_points).reshape(-1, 3)
-        # accum_frame_pcd = o3d.geometry.PointCloud()
-        # accum_frame_pcd.points = o3d.utility.Vector3dVector(build_points_accum)
-        # accum_frame_pcd.paint_uniform_color([0, 1, 0.5])
-        # o3d.visualization.draw_geometries([self.hit_building_line_set, accum_frame_pcd])
 
         # 7) Extract and save points corresponding to OSM building edges
         print(f'   6) Extracting and saving per-scan points corresponding to OSM building edges.\n')
@@ -355,27 +328,6 @@ class extractBuildingData():
             building_accum_scan_file = os.path.join(self.extracted_building_data_dir, 'per_building', 'edges_accum', f'build_{iter}_accum.bin')
             with open(building_accum_scan_file, 'wb') as bin_file:
                 np.array(hit_building.accum_points).tofile(bin_file)
-
-    # def extract_per_frame_building_edge_points(self):
-    #     frame_num = self.init_frame
-    #     while True:
-    #         frame_build_scan_file = os.path.join(self.extracted_building_data_dir, 'per_frame', f'{frame_num:010d}_obs_points.bin')
-    #         if os.path.exists(frame_build_scan_file):
-    #             print(f"        --> Found existing extracted points from frame: {frame_num} that hit OSM building edges.")
-    #         else:
-    #             raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
-    #             pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-    #             new_pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, self.velodyne_poses, frame_num, self.labels_dict)
-
-    #             if new_pcd is not None:
-    #                 extract_and_save_building_points(new_pcd, self.hit_building_list, self.radius, frame_num, self.extracted_building_data_dir)
-    #                 print(f"        --> Extracted points from frame: {frame_num} that hit OSM building edges.")
-
-    #         frame_num += self.inc_frame
-
-    #         # Exit the loop all frames in sequence processed
-    #         if frame_num > self.fin_frame:  # Define the maximum frame number you want to process
-    #             break
 
     def extract_per_frame_building_edge_points(self):
         frame_num = self.init_frame
