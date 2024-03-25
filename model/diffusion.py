@@ -41,6 +41,11 @@ class SceneCompletionDataset(Dataset):
         obs_points = read_bin_file(obs_points_path)
         accum_points = read_bin_file(accum_points_path)
 
+        # Check if any of the arrays are empty
+        if obs_edges.size == 0 or unobs_edges.size == 0 or obs_points.size == 0 or accum_points.size == 0:
+            # Skip this sample and return the next valid sample
+            return self.__getitem__((idx + 1) % len(self))
+
         # Preprocessing steps
         obs_edges = self.preprocess_points(obs_edges)
         unobs_edges = self.preprocess_points(unobs_edges)
@@ -56,17 +61,34 @@ class SceneCompletionDataset(Dataset):
         return obs_edges, unobs_edges, obs_points, accum_points
 
     def preprocess_points(self, points):
+        if points.size == 0:
+            return torch.empty(0, 3, dtype=torch.float32)
+        
         # Normalize coordinates to the range [-1, 1]
         min_coords = np.min(points, axis=0)
         max_coords = np.max(points, axis=0)
-        normalized_points = 2 * (points - min_coords) / (max_coords - min_coords) - 1
+        normalized_points = 2 * (points - min_coords) / (max_coords - min_coords + 1e-8) - 1
         return torch.tensor(normalized_points, dtype=torch.float32)
-
+    
     def subsample_points(self, points):
+        if isinstance(points, torch.Tensor):
+            points = points.numpy()
+
+        if points.size == 0:
+            return torch.empty(0, 3, dtype=torch.float32)
+
         # Random subsampling of points
-        idx = np.random.choice(points.shape[0], self.num_points, replace=False)
-        subsampled_points = points[idx]
-        return subsampled_points
+        if points.shape[0] >= self.num_points:
+            idx = np.random.choice(points.shape[0], self.num_points, replace=False)
+            subsampled_points = points[idx]
+        else:
+            # If the input points array has fewer points than the desired subsample size,
+            # randomly duplicate points to reach the desired size
+            num_pad_points = self.num_points - points.shape[0]
+            pad_idx = np.random.choice(points.shape[0], num_pad_points, replace=True)
+            subsampled_points = np.concatenate((points, points[pad_idx]), axis=0)
+
+        return torch.from_numpy(subsampled_points).float()
 
     def get_scan_numbers(self):
         scan_files = [f for f in os.listdir(self.data_dir) if f.endswith("_accum_points.bin")]
@@ -94,8 +116,9 @@ class SceneCompletionDataset(Dataset):
 
 # Diffusion model architecture
 class DiffusionModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_points):
         super(DiffusionModel, self).__init__()
+        self.num_points = num_points
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
@@ -104,6 +127,11 @@ class DiffusionModel(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, obs_edges, unobs_edges, obs_points):
+        # Reshape input features
+        obs_edges = obs_edges.view(-1, self.num_points * 3)
+        unobs_edges = unobs_edges.view(-1, self.num_points * 3)
+        obs_points = obs_points.view(-1, self.num_points * 3)
+
         # Concatenate input features
         x = torch.cat((obs_edges, unobs_edges, obs_points), dim=1)
         x = self.fc1(x)
@@ -115,6 +143,10 @@ class DiffusionModel(nn.Module):
         x = self.fc4(x)
         x = self.relu(x)
         x = self.fc5(x)
+
+        # Reshape the output to match the target tensor shape
+        x = x.view(-1, self.num_points, 3)
+
         return x
 
 # Training loop
@@ -149,13 +181,13 @@ def train(model, dataloader, optimizer, criterion, device, num_epochs):
         print(f"Epoch [{epoch+1}/{num_epochs}], Average Loss: {epoch_loss / len(dataloader):.4f}")
 
 # Hyperparameters
-input_dim = 9  # Assumes 3D points (x, y, z) for each input
+num_points = 1024  # Number of points to subsample
+input_dim = num_points * 3 * 3  # Assumes 3D points (x, y, z) for each input and 3 input tensors
 hidden_dim = 512
-output_dim = 3
+output_dim = num_points * 3
 learning_rate = 0.001
 batch_size = 32
 num_epochs = 100
-num_points = 1024  # Number of points to subsample
 
 # Set the sequence number
 seq = 0
@@ -177,7 +209,7 @@ dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # Create model, optimizer, and loss function
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = DiffusionModel(input_dim, hidden_dim, output_dim).to(device)
+model = DiffusionModel(input_dim, hidden_dim, output_dim, num_points).to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 criterion = nn.MSELoss()
 
