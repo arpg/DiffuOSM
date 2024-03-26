@@ -118,42 +118,28 @@ class SceneCompletionDataset(Dataset):
 
 # Diffusion model architecture
 class DiffusionModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_points):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_points, num_timesteps):
         super(DiffusionModel, self).__init__()
         self.num_points = num_points
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.num_timesteps = num_timesteps
+        self.fc1 = nn.Linear(input_dim + 1, hidden_dim)  # Add an extra dimension for the timestep embedding
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc4 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc5 = nn.Linear(hidden_dim, output_dim)
+        self.fc3 = nn.Linear(hidden_dim, output_dim)
         self.relu = nn.ReLU()
 
-    def forward(self, obs_edges, unobs_edges, obs_points):
+    def forward(self, obs_edges, unobs_edges, obs_points, t):
         # Reshape input features
         obs_edges = obs_edges.view(-1, self.num_points * 3)
         unobs_edges = unobs_edges.view(-1, self.num_points * 3)
         obs_points = obs_points.view(-1, self.num_points * 3)
 
         # Concatenate input features
-        x = torch.cat((obs_edges, unobs_edges, obs_points), dim=1)
+        x = torch.cat((obs_edges, unobs_edges, obs_points, t), dim=1)
         x = self.fc1(x)
         x = self.relu(x)
         x = self.fc2(x)
         x = self.relu(x)
         x = self.fc3(x)
-        x = self.relu(x)
-        x = self.fc4(x)
-        x = self.relu(x)
-        x = self.fc5(x)
-        x = self.fc6(x)
-        x = self.relu(x)
-        x = self.fc7(x)
-        x = self.relu(x)
-        x = self.fc8(x)
-        x = self.relu(x)
-        x = self.fc9(x)
-        x = self.relu(x)
-        x = self.fc10(x)
 
         # Reshape the output to match the target tensor shape
         x = x.view(-1, self.num_points, 3)
@@ -161,7 +147,7 @@ class DiffusionModel(nn.Module):
         return x
 
 # Training loop
-def train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir):
+def train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir, num_timesteps, beta_start, beta_end):
     model.train()
     for epoch in range(num_epochs):
         print(f"Starting epoch {epoch+1}/{num_epochs}")
@@ -173,9 +159,24 @@ def train(model, dataloader, optimizer, criterion, device, num_epochs, model_sav
             obs_points = obs_points.to(device)
             accum_points = accum_points.to(device)
 
+            # Generate timesteps
+            t = torch.randint(0, num_timesteps, (accum_points.shape[0],), device=device).long()
+            t_embed = t.float().view(-1, 1) / num_timesteps
+
+            # Compute noise schedule parameters
+            beta_t = beta_start + (beta_end - beta_start) * t / num_timesteps
+            alpha_t = 1 - beta_t
+            alpha_bar_t = torch.cumprod(alpha_t, dim=0)
+
+            # Sample noise
+            noise = torch.randn_like(accum_points)
+
+            # Compute noisy accumulation points
+            noisy_accum_points = torch.sqrt(alpha_bar_t).view(-1, 1, 1) * accum_points + torch.sqrt(1 - alpha_bar_t).view(-1, 1, 1) * noise
+
             # Forward pass
-            outputs = model(obs_edges, unobs_edges, obs_points)
-            loss = criterion(outputs, accum_points)
+            predicted_noise = model(obs_edges, unobs_edges, obs_points, t_embed)
+            loss = criterion(predicted_noise, noise)
 
             # Backward pass and optimization
             optimizer.zero_grad()
@@ -193,10 +194,33 @@ def train(model, dataloader, optimizer, criterion, device, num_epochs, model_sav
 
     # Save the trained model
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_name = f"diffusom_model_e{num_epochs}_h{hidden_dim}_p{num_points}_{timestamp}.pth"
+    model_name = f"diffusion_model_e{num_epochs}_h{hidden_dim}_p{num_points}_{timestamp}.pth"
     model_path = os.path.join(model_save_dir, model_name)
     torch.save(model.state_dict(), model_path)
     print(f"Model saved at: {model_path}")
+
+# Inference function
+def infer(model, obs_edges, unobs_edges, obs_points, num_timesteps, beta_start, beta_end, device):
+    model.eval()
+    with torch.no_grad():
+        # Reshape input features
+        obs_edges = obs_edges.view(-1, num_points * 3)
+        unobs_edges = unobs_edges.view(-1, num_points * 3)
+        obs_points = obs_points.view(-1, num_points * 3)
+
+        # Initialize the accumulation points with random noise
+        accum_points = torch.randn((1, num_points, 3), device=device)
+
+        # Iterative denoising process
+        for t in range(num_timesteps - 1, -1, -1):
+            t_embed = torch.tensor([t / num_timesteps], device=device).float().view(1, 1)
+            predicted_noise = model(obs_edges, unobs_edges, obs_points, t_embed)
+            beta_t = beta_start + (beta_end - beta_start) * t / num_timesteps
+            alpha_t = 1 - beta_t
+            alpha_bar_t = torch.prod(torch.tensor([1 - beta_start + (beta_end - beta_start) * i / num_timesteps for i in range(t + 1)], device=device))
+            accum_points = (accum_points - beta_t / torch.sqrt(1 - alpha_bar_t) * predicted_noise) / torch.sqrt(alpha_t)
+
+        return accum_points
 
 def visualize_examples(model, dataset, device, num_examples=10):
     model.eval()
@@ -285,6 +309,11 @@ output_dim = num_points * 3
 learning_rate = 0.001
 batch_size = 64
 num_epochs = 100
+num_timesteps = 1000
+beta_start = 0.0001
+beta_end = 0.02
+use_ensemble = False  # Set to True for ensemble training, False for single model training
+num_ensemble = 1  # Number of models in the ensemble (only used if use_ensemble is True)
 
 # Set the sequence number
 seq = 0
@@ -301,7 +330,12 @@ wandb.init(project="diffusom", config={
     "learning_rate": learning_rate,
     "batch_size": batch_size,
     "num_epochs": num_epochs,
-    "num_points": num_points
+    "num_points": num_points,
+    "num_timesteps": num_timesteps,
+    "beta_start": beta_start,
+    "beta_end": beta_end,
+    "use_ensemble": use_ensemble,
+    "num_ensemble": num_ensemble
 })
 
 # Create dataset and dataloader
@@ -310,19 +344,49 @@ dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # Create model, optimizer, and loss function
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = DiffusionModel(input_dim, hidden_dim, output_dim, num_points).to(device)
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+if use_ensemble:
+    models = []
+    optimizers = []
+    for i in range(num_ensemble):
+        model = DiffusionModel(input_dim, hidden_dim, output_dim, num_points, num_timesteps).to(device)
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        models.append(model)
+        optimizers.append(optimizer)
+else:
+    model = DiffusionModel(input_dim, hidden_dim, output_dim, num_points, num_timesteps).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
 criterion = nn.MSELoss()
 
-# Train the model
-train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir)
+# Print the size of the network in parameters
+if use_ensemble:
+    num_params = sum(p.numel() for p in models[0].parameters())
+    print(f"Number of parameters in each model: {num_params}")
+else:
+    num_params = sum(p.numel() for p in model.parameters())
+    print(f"Number of parameters in the model: {num_params}")
+
+# Train the model(s)
+if use_ensemble:
+    for i in range(num_ensemble):
+        print(f"Training model {i+1}/{num_ensemble}")
+        train(models[i], dataloader, optimizers[i], criterion, device, num_epochs, model_save_dir, num_timesteps, beta_start, beta_end)
+else:
+    train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir, num_timesteps, beta_start, beta_end)
 
 # Visualize examples from the train set
-visualize_examples(model, dataset, device)
+if use_ensemble:
+    visualize_examples(models, dataset, device, num_examples=10, ensemble=True)
+else:
+    visualize_examples(model, dataset, device, num_examples=10)
 
 # Create a test dataset and dataloader
 test_dataset = SceneCompletionDataset(seq, num_points)
 test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 # Visualize examples from the test set
-visualize_examples(model, test_dataset, device)
+if use_ensemble:
+    visualize_examples(models, test_dataset, device, num_examples=10, ensemble=True)
+else:
+    visualize_examples(model, test_dataset, device, num_examples=10)
