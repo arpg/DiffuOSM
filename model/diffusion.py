@@ -7,8 +7,8 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import wandb
 import open3d as o3d
-from chamferdist import ChamferDistance
-from emd import earth_mover_distance
+from scipy.spatial.distance import directed_hausdorff
+from pyemd import emd
 from datetime import datetime
 
 # Add the helpers directory to the Python module search path
@@ -126,7 +126,14 @@ class DiffusionModel(nn.Module):
         self.num_timesteps = num_timesteps
         self.fc1 = nn.Linear(input_dim + 1, hidden_dim)  # Add an extra dimension for the timestep embedding
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, output_dim)
+        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc4 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc5 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc6 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc7 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc8 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc9 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc10 = nn.Linear(hidden_dim, output_dim)
         self.relu = nn.ReLU()
 
     def forward(self, obs_edges, unobs_edges, obs_points, t):
@@ -142,6 +149,20 @@ class DiffusionModel(nn.Module):
         x = self.fc2(x)
         x = self.relu(x)
         x = self.fc3(x)
+        x = self.relu(x)
+        x = self.fc4(x)
+        x = self.relu(x)
+        x = self.fc5(x)
+        x = self.relu(x)
+        x = self.fc6(x)
+        x = self.relu(x)
+        x = self.fc7(x)
+        x = self.relu(x)
+        x = self.fc8(x)
+        x = self.relu(x)
+        x = self.fc9(x)
+        x = self.relu(x)
+        x = self.fc10(x)
 
         # Reshape the output to match the target tensor shape
         x = x.view(-1, self.num_points, 3)
@@ -235,7 +256,8 @@ def visualize_examples(model, dataset, device, num_examples=10):
         obs_points = obs_points.unsqueeze(0).to(device)
         
         with torch.no_grad():
-            output = model(obs_edges, unobs_edges, obs_points)
+            t = torch.tensor([0.0], device=device).float().view(1, 1)  # Add this line to provide the timestep embedding
+            output = model(obs_edges, unobs_edges, obs_points, t)  # Pass 't' as an argument to the model
         
         obs_edges_np = obs_edges.squeeze().cpu().numpy()
         unobs_edges_np = unobs_edges.squeeze().cpu().numpy()
@@ -306,8 +328,7 @@ def visualize_examples(model, dataset, device, num_examples=10):
 
 def compute_metrics(model, test_dataloader, device):
     model.eval()
-    chamfer_dist = ChamferDistance()
-    total_chamfer_dist = 0
+    total_hausdorff_dist = 0
     total_emd = 0
     num_samples = 0
 
@@ -322,21 +343,23 @@ def compute_metrics(model, test_dataloader, device):
             # Generate point clouds using the trained model
             generated_points = infer(model, obs_edges, unobs_edges, obs_points, num_timesteps, beta_start, beta_end, device)
 
-            # Compute Chamfer Distance
-            dist1, dist2 = chamfer_dist(generated_points, accum_points)
-            chamfer_distance = (torch.mean(dist1) + torch.mean(dist2)) / 2
-            total_chamfer_dist += chamfer_distance.item()
+            # Compute Hausdorff Distance
+            generated_points_np = generated_points.squeeze().cpu().numpy()
+            accum_points_np = accum_points.squeeze().cpu().numpy()
+            hausdorff_distance = max(directed_hausdorff(generated_points_np, accum_points_np)[0],
+                                     directed_hausdorff(accum_points_np, generated_points_np)[0])
+            total_hausdorff_dist += hausdorff_distance
 
             # Compute Earth Mover's Distance
-            emd_distance = earth_mover_distance(generated_points, accum_points)
-            total_emd += emd_distance.item()
+            emd_distance = emd(generated_points_np, accum_points_np)
+            total_emd += emd_distance
 
             num_samples += 1
 
-    avg_chamfer_dist = total_chamfer_dist / num_samples
+    avg_hausdorff_dist = total_hausdorff_dist / num_samples
     avg_emd = total_emd / num_samples
 
-    print(f"Average Chamfer Distance: {avg_chamfer_dist:.4f}")
+    print(f"Average Hausdorff Distance: {avg_hausdorff_dist:.4f}")
     print(f"Average Earth Mover's Distance: {avg_emd:.4f}")
 
 
@@ -437,3 +460,4 @@ if use_ensemble:
     visualize_examples(models, test_dataset, device, num_examples=10, ensemble=True)
 else:
     visualize_examples(model, test_dataset, device, num_examples=10)
+    

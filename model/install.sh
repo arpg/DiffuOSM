@@ -9,7 +9,7 @@ conda activate scene_completion
 # Install PyTorch with CUDA support
 conda install torch
 
-pip install chamferdist emd-pytorch
+pip install pyemd scipy
 
 # Install other required packages
 conda install numpy
