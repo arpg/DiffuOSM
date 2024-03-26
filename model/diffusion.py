@@ -6,6 +6,8 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import wandb
+import open3d as o3d
+from datetime import datetime
 
 # Add the helpers directory to the Python module search path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'data_extraction', 'helpers'))
@@ -143,6 +145,15 @@ class DiffusionModel(nn.Module):
         x = self.fc4(x)
         x = self.relu(x)
         x = self.fc5(x)
+        x = self.fc6(x)
+        x = self.relu(x)
+        x = self.fc7(x)
+        x = self.relu(x)
+        x = self.fc8(x)
+        x = self.relu(x)
+        x = self.fc9(x)
+        x = self.relu(x)
+        x = self.fc10(x)
 
         # Reshape the output to match the target tensor shape
         x = x.view(-1, self.num_points, 3)
@@ -150,7 +161,7 @@ class DiffusionModel(nn.Module):
         return x
 
 # Training loop
-def train(model, dataloader, optimizer, criterion, device, num_epochs):
+def train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir):
     model.train()
     for epoch in range(num_epochs):
         print(f"Starting epoch {epoch+1}/{num_epochs}")
@@ -180,17 +191,107 @@ def train(model, dataloader, optimizer, criterion, device, num_epochs):
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Average Loss: {epoch_loss / len(dataloader):.4f}")
 
+    # Save the trained model
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_name = f"diffusom_model_e{num_epochs}_h{hidden_dim}_p{num_points}_{timestamp}.pth"
+    model_path = os.path.join(model_save_dir, model_name)
+    torch.save(model.state_dict(), model_path)
+    print(f"Model saved at: {model_path}")
+
+def visualize_examples(model, dataset, device, num_examples=10):
+    model.eval()
+    indices = np.random.choice(len(dataset), num_examples, replace=False)
+    
+    for idx in indices:
+        obs_edges, unobs_edges, obs_points, accum_points = dataset[idx]
+        obs_edges = obs_edges.unsqueeze(0).to(device)
+        unobs_edges = unobs_edges.unsqueeze(0).to(device)
+        obs_points = obs_points.unsqueeze(0).to(device)
+        
+        with torch.no_grad():
+            output = model(obs_edges, unobs_edges, obs_points)
+        
+        obs_edges_np = obs_edges.squeeze().cpu().numpy()
+        unobs_edges_np = unobs_edges.squeeze().cpu().numpy()
+        obs_points_np = obs_points.squeeze().cpu().numpy()
+        accum_points_np = accum_points.numpy()
+        output_np = output.squeeze().cpu().numpy()
+        
+        pcd_obs_edges = o3d.geometry.PointCloud()
+        pcd_obs_edges.points = o3d.utility.Vector3dVector(obs_edges_np)
+        pcd_obs_edges.paint_uniform_color([1, 0, 0])  # Red
+        
+        pcd_unobs_edges = o3d.geometry.PointCloud()
+        pcd_unobs_edges.points = o3d.utility.Vector3dVector(unobs_edges_np)
+        pcd_unobs_edges.paint_uniform_color([0, 1, 0])  # Green
+        
+        pcd_obs_points = o3d.geometry.PointCloud()
+        pcd_obs_points.points = o3d.utility.Vector3dVector(obs_points_np)
+        pcd_obs_points.paint_uniform_color([0, 0, 1])  # Blue
+        
+        pcd_accum_points = o3d.geometry.PointCloud()
+        pcd_accum_points.points = o3d.utility.Vector3dVector(accum_points_np)
+        pcd_accum_points.paint_uniform_color([1, 1, 0])  # Yellow
+        
+        pcd_output = o3d.geometry.PointCloud()
+        pcd_output.points = o3d.utility.Vector3dVector(output_np)
+        pcd_output.paint_uniform_color([0, 1, 1])  # Cyan
+        
+        # Create a visualization window
+        vis = o3d.visualization.Visualizer()
+        vis.create_window(window_name=f"Example {idx+1}")
+        
+        # Add point clouds to the visualization
+        vis.add_geometry(pcd_obs_edges)
+        vis.add_geometry(pcd_unobs_edges)
+        vis.add_geometry(pcd_obs_points)
+        vis.add_geometry(pcd_accum_points)
+        vis.add_geometry(pcd_output)
+        
+        # Add legend text labels
+        legend_obs_edges = o3d.geometry.TextGeometry("Observed Edges (Red)", font_size=12)
+        legend_obs_edges.translate([0, 0.1, 0])
+        vis.add_geometry(legend_obs_edges)
+        
+        legend_unobs_edges = o3d.geometry.TextGeometry("Unobserved Edges (Green)", font_size=12)
+        legend_unobs_edges.translate([0, 0.05, 0])
+        vis.add_geometry(legend_unobs_edges)
+        
+        legend_obs_points = o3d.geometry.TextGeometry("Observed Points (Blue)", font_size=12)
+        legend_obs_points.translate([0, 0, 0])
+        vis.add_geometry(legend_obs_points)
+        
+        legend_accum_points = o3d.geometry.TextGeometry("Accumulated Points (Yellow)", font_size=12)
+        legend_accum_points.translate([0, -0.05, 0])
+        vis.add_geometry(legend_accum_points)
+        
+        legend_output = o3d.geometry.TextGeometry("Predicted Output (Cyan)", font_size=12)
+        legend_output.translate([0, -0.1, 0])
+        vis.add_geometry(legend_output)
+        
+        # Add coordinate axes
+        axes = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0)
+        vis.add_geometry(axes)
+        
+        # Run the visualization
+        vis.run()
+        vis.destroy_window()
+
 # Hyperparameters
-num_points = 1024  # Number of points to subsample
+num_points = 2048  # Number of points to subsample
 input_dim = num_points * 3 * 3  # Assumes 3D points (x, y, z) for each input and 3 input tensors
-hidden_dim = 512
+hidden_dim = 4096
 output_dim = num_points * 3
 learning_rate = 0.001
-batch_size = 32
+batch_size = 64
 num_epochs = 100
 
 # Set the sequence number
 seq = 0
+
+# Create a directory to store the saved models
+model_save_dir = "saved_models"
+os.makedirs(model_save_dir, exist_ok=True)
 
 # Initialize wandb
 wandb.init(project="diffusom", config={
@@ -214,4 +315,14 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 criterion = nn.MSELoss()
 
 # Train the model
-train(model, dataloader, optimizer, criterion, device, num_epochs)
+train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir)
+
+# Visualize examples from the train set
+visualize_examples(model, dataset, device)
+
+# Create a test dataset and dataloader
+test_dataset = SceneCompletionDataset(seq, num_points)
+test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+
+# Visualize examples from the test set
+visualize_examples(model, test_dataset, device)
