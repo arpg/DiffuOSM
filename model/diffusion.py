@@ -7,6 +7,8 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import wandb
 import open3d as o3d
+from chamferdist import ChamferDistance
+from emd import earth_mover_distance
 from datetime import datetime
 
 # Add the helpers directory to the Python module search path
@@ -301,6 +303,43 @@ def visualize_examples(model, dataset, device, num_examples=10):
         vis.run()
         vis.destroy_window()
 
+
+def compute_metrics(model, test_dataloader, device):
+    model.eval()
+    chamfer_dist = ChamferDistance()
+    total_chamfer_dist = 0
+    total_emd = 0
+    num_samples = 0
+
+    with torch.no_grad():
+        for batch_idx, data in enumerate(test_dataloader):
+            obs_edges, unobs_edges, obs_points, accum_points = data
+            obs_edges = obs_edges.to(device)
+            unobs_edges = unobs_edges.to(device)
+            obs_points = obs_points.to(device)
+            accum_points = accum_points.to(device)
+
+            # Generate point clouds using the trained model
+            generated_points = infer(model, obs_edges, unobs_edges, obs_points, num_timesteps, beta_start, beta_end, device)
+
+            # Compute Chamfer Distance
+            dist1, dist2 = chamfer_dist(generated_points, accum_points)
+            chamfer_distance = (torch.mean(dist1) + torch.mean(dist2)) / 2
+            total_chamfer_dist += chamfer_distance.item()
+
+            # Compute Earth Mover's Distance
+            emd_distance = earth_mover_distance(generated_points, accum_points)
+            total_emd += emd_distance.item()
+
+            num_samples += 1
+
+    avg_chamfer_dist = total_chamfer_dist / num_samples
+    avg_emd = total_emd / num_samples
+
+    print(f"Average Chamfer Distance: {avg_chamfer_dist:.4f}")
+    print(f"Average Earth Mover's Distance: {avg_emd:.4f}")
+
+
 # Hyperparameters
 num_points = 2048  # Number of points to subsample
 input_dim = num_points * 3 * 3  # Assumes 3D points (x, y, z) for each input and 3 input tensors
@@ -375,15 +414,23 @@ if use_ensemble:
 else:
     train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir, num_timesteps, beta_start, beta_end)
 
+# Create a test dataset and dataloader
+test_dataset = SceneCompletionDataset(seq, num_points)
+test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+
+# Compute metrics over the test set
+if use_ensemble:
+    for i in range(num_ensemble):
+        print(f"Metrics for model {i+1}/{num_ensemble}:")
+        compute_metrics(models[i], test_dataloader, device)
+else:
+    compute_metrics(model, test_dataloader, device)
+
 # Visualize examples from the train set
 if use_ensemble:
     visualize_examples(models, dataset, device, num_examples=10, ensemble=True)
 else:
     visualize_examples(model, dataset, device, num_examples=10)
-
-# Create a test dataset and dataloader
-test_dataset = SceneCompletionDataset(seq, num_points)
-test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 # Visualize examples from the test set
 if use_ensemble:
