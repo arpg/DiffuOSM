@@ -241,6 +241,11 @@ def infer(model, obs_edges, unobs_edges, obs_points, num_timesteps, beta_start, 
             beta_t = beta_start + (beta_end - beta_start) * t / num_timesteps
             alpha_t = 1 - beta_t
             alpha_bar_t = torch.prod(torch.tensor([1 - beta_start + (beta_end - beta_start) * i / num_timesteps for i in range(t + 1)], device=device))
+            
+            # Convert alpha_t and alpha_bar_t to tensors
+            alpha_t = torch.tensor(alpha_t, device=device)
+            alpha_bar_t = torch.tensor(alpha_bar_t, device=device)
+            
             accum_points = (accum_points - beta_t / torch.sqrt(1 - alpha_bar_t) * predicted_noise) / torch.sqrt(alpha_t)
 
         return accum_points
@@ -374,8 +379,8 @@ num_epochs = 100
 num_timesteps = 1000
 beta_start = 0.0001
 beta_end = 0.02
-use_ensemble = False  # Set to True for ensemble training, False for single model training
-num_ensemble = 1  # Number of models in the ensemble (only used if use_ensemble is True)
+use_ensemble = True  # Set to True for ensemble training, False for single model training
+num_ensemble = 3  # Number of models in the ensemble (only used if use_ensemble is True)
 
 # Set the sequence number
 seq = 0
@@ -460,4 +465,3 @@ if use_ensemble:
     visualize_examples(models, test_dataset, device, num_examples=10, ensemble=True)
 else:
     visualize_examples(model, test_dataset, device, num_examples=10)
-    
