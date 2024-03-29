@@ -8,6 +8,7 @@ import numpy as np
 import wandb
 import open3d as o3d
 from scipy.spatial.distance import directed_hausdorff
+from scipy.spatial.distance import cdist
 from pyemd import emd
 from datetime import datetime
 
@@ -118,56 +119,88 @@ class SceneCompletionDataset(Dataset):
                 continue
         return sorted(scan_numbers)
 
+# U-Net block with cross-attention
+class UNetBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, time_emb_dim):
+        super(UNetBlock, self).__init__()
+        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.time_emb = nn.Linear(time_emb_dim, out_channels)
+        self.cross_attn = nn.MultiheadAttention(out_channels, num_heads=4)
+        self.norm1 = nn.BatchNorm1d(out_channels)
+        self.norm2 = nn.BatchNorm1d(out_channels)
+        self.relu = nn.ReLU()
+
+    def forward(self, x, t, cond):
+        x = self.conv1(x)
+        x = self.norm1(x)
+        x = self.relu(x)
+
+        t_emb = self.time_emb(t)
+        t_emb = t_emb.unsqueeze(1).expand(-1, x.shape[1], -1)
+        x = x + t_emb
+
+        attn_output, _ = self.cross_attn(x, cond, cond)
+        x = x + attn_output
+
+        x = self.conv2(x)
+        x = self.norm2(x)
+        x = self.relu(x)
+
+        return x
+
 # Diffusion model architecture
 class DiffusionModel(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, num_points, num_timesteps):
         super(DiffusionModel, self).__init__()
         self.num_points = num_points
         self.num_timesteps = num_timesteps
-        self.fc1 = nn.Linear(input_dim + 1, hidden_dim)  # Add an extra dimension for the timestep embedding
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc4 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc5 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc6 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc7 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc8 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc9 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc10 = nn.Linear(hidden_dim, output_dim)
-        self.relu = nn.ReLU()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.output_dim = output_dim
 
-    def forward(self, obs_edges, unobs_edges, obs_points, t):
+        self.embedding = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU()
+        )
+
+        self.down1 = UNetBlock(3, hidden_dim, hidden_dim)
+        self.down2 = UNetBlock(hidden_dim, hidden_dim * 2, hidden_dim)
+        self.down3 = UNetBlock(hidden_dim * 2, hidden_dim * 4, hidden_dim)
+
+        self.bottleneck = UNetBlock(hidden_dim * 4, hidden_dim * 8, hidden_dim)
+
+        self.up1 = UNetBlock(hidden_dim * 12, hidden_dim * 4, hidden_dim)
+        self.up2 = UNetBlock(hidden_dim * 6, hidden_dim * 2, hidden_dim)
+        self.up3 = UNetBlock(hidden_dim * 3, hidden_dim, hidden_dim)
+
+        self.out = nn.Conv1d(hidden_dim, 3, kernel_size=1)
+
+    def forward(self, obs_edges, unobs_edges, obs_points, noisy_accum_points, t):
         # Reshape input features
-        obs_edges = obs_edges.view(-1, self.num_points * 3)
-        unobs_edges = unobs_edges.view(-1, self.num_points * 3)
-        obs_points = obs_points.view(-1, self.num_points * 3)
+        obs_edges = obs_edges.view(-1, self.num_points, 3).permute(0, 2, 1)
+        unobs_edges = unobs_edges.view(-1, self.num_points, 3).permute(0, 2, 1)
+        obs_points = obs_points.view(-1, self.num_points, 3).permute(0, 2, 1)
+        noisy_accum_points = noisy_accum_points.view(-1, self.num_points, 3).permute(0, 2, 1)
 
         # Concatenate input features
-        x = torch.cat((obs_edges, unobs_edges, obs_points, t), dim=1)
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.fc2(x)
-        x = self.relu(x)
-        x = self.fc3(x)
-        x = self.relu(x)
-        x = self.fc4(x)
-        x = self.relu(x)
-        x = self.fc5(x)
-        x = self.relu(x)
-        x = self.fc6(x)
-        x = self.relu(x)
-        x = self.fc7(x)
-        x = self.relu(x)
-        x = self.fc8(x)
-        x = self.relu(x)
-        x = self.fc9(x)
-        x = self.relu(x)
-        x = self.fc10(x)
+        cond = torch.cat((obs_edges, unobs_edges, obs_points), dim=1)
+        cond = self.embedding(cond)
 
-        # Reshape the output to match the target tensor shape
-        x = x.view(-1, self.num_points, 3)
+        # U-Net with cross-attention
+        down1 = self.down1(noisy_accum_points, t, cond)
+        down2 = self.down2(down1, t, cond)
+        down3 = self.down3(down2, t, cond)
 
-        return x
+        bottleneck = self.bottleneck(down3, t, cond)
+
+        up1 = self.up1(torch.cat((bottleneck, down3), dim=1), t, cond)
+        up2 = self.up2(torch.cat((up1, down2), dim=1), t, cond)
+        up3 = self.up3(torch.cat((up2, down1), dim=1), t, cond)
+
+        out = self.out(up3)
+
+        return out.permute(0, 2, 1)
 
 # Training loop
 def train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir, num_timesteps, beta_start, beta_end):
@@ -198,7 +231,7 @@ def train(model, dataloader, optimizer, criterion, device, num_epochs, model_sav
             noisy_accum_points = torch.sqrt(alpha_bar_t).view(-1, 1, 1) * accum_points + torch.sqrt(1 - alpha_bar_t).view(-1, 1, 1) * noise
 
             # Forward pass
-            predicted_noise = model(obs_edges, unobs_edges, obs_points, t_embed)
+            predicted_noise = model(obs_edges, unobs_edges, obs_points, noisy_accum_points, t_embed)
             loss = criterion(predicted_noise, noise)
 
             # Backward pass and optimization
@@ -237,7 +270,7 @@ def infer(model, obs_edges, unobs_edges, obs_points, num_timesteps, beta_start, 
         # Iterative denoising process
         for t in range(num_timesteps - 1, -1, -1):
             t_embed = torch.tensor([t / num_timesteps], device=device).float().view(1, 1)
-            predicted_noise = model(obs_edges, unobs_edges, obs_points, t_embed)
+            predicted_noise = model(obs_edges, unobs_edges, obs_points, accum_points, t_embed)
             beta_t = beta_start + (beta_end - beta_start) * t / num_timesteps
             alpha_t = 1 - beta_t
             alpha_bar_t = torch.prod(torch.tensor([1 - beta_start + (beta_end - beta_start) * i / num_timesteps for i in range(t + 1)], device=device))
@@ -250,8 +283,10 @@ def infer(model, obs_edges, unobs_edges, obs_points, num_timesteps, beta_start, 
 
         return accum_points
 
-def visualize_examples(model, dataset, device, num_examples=10):
-    model.eval()
+def visualize_examples(models, dataset, device, num_examples=10, ensemble=False):
+    if not ensemble:
+        models = [models]  # Convert single model to a list for consistency
+
     indices = np.random.choice(len(dataset), num_examples, replace=False)
     
     for idx in indices:
@@ -262,7 +297,16 @@ def visualize_examples(model, dataset, device, num_examples=10):
         
         with torch.no_grad():
             t = torch.tensor([0.0], device=device).float().view(1, 1)  # Add this line to provide the timestep embedding
-            output = model(obs_edges, unobs_edges, obs_points, t)  # Pass 't' as an argument to the model
+            outputs = []
+            for model in models:
+                model.eval()
+                output = model(obs_edges, unobs_edges, obs_points, t)  # Pass 't' as an argument to the model
+                outputs.append(output)
+            
+            if ensemble:
+                output = torch.mean(torch.stack(outputs), dim=0)
+            else:
+                output = outputs[0]
         
         obs_edges_np = obs_edges.squeeze().cpu().numpy()
         unobs_edges_np = unobs_edges.squeeze().cpu().numpy()
@@ -356,7 +400,10 @@ def compute_metrics(model, test_dataloader, device):
             total_hausdorff_dist += hausdorff_distance
 
             # Compute Earth Mover's Distance
-            emd_distance = emd(generated_points_np, accum_points_np)
+            distance_matrix = cdist(generated_points_np, accum_points_np)
+            emd_distance = emd(np.ones(generated_points_np.shape[0]) / generated_points_np.shape[0],
+                               np.ones(accum_points_np.shape[0]) / accum_points_np.shape[0],
+                               distance_matrix)
             total_emd += emd_distance
 
             num_samples += 1
@@ -375,11 +422,11 @@ hidden_dim = 4096
 output_dim = num_points * 3
 learning_rate = 0.001
 batch_size = 64
-num_epochs = 100
+num_epochs = 30
 num_timesteps = 1000
 beta_start = 0.0001
 beta_end = 0.02
-use_ensemble = True  # Set to True for ensemble training, False for single model training
+use_ensemble = False  # Set to True for ensemble training, False for single model training
 num_ensemble = 3  # Number of models in the ensemble (only used if use_ensemble is True)
 
 # Set the sequence number
