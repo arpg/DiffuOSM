@@ -130,21 +130,61 @@ class UNetBlock(nn.Module):
         self.norm1 = nn.BatchNorm1d(out_channels)
         self.norm2 = nn.BatchNorm1d(out_channels)
         self.relu = nn.ReLU()
+        self.down1 = nn.Conv1d(in_channels, out_channels, kernel_size=3, stride=2, padding=1)
 
-    def forward(self, x, t, cond):
+        # Add the embedding layer
+        self.embedding = nn.Sequential(
+            nn.Linear(num_points * 9, hidden_dim),
+            nn.ReLU()
+        )
+
+    def forward(self, obs_edges, unobs_edges, obs_points, x, t_embed):
+        # Ensure input features have three dimensions, if not, unsqueeze the missing dimension
+        if obs_edges.dim() == 2:
+            obs_edges = obs_edges.unsqueeze(2)
+        if unobs_edges.dim() == 2:
+            unobs_edges = unobs_edges.unsqueeze(2)
+        if obs_points.dim() == 2:
+            obs_points = obs_points.unsqueeze(2)
+
+        # Permute input features to [batch_size, num_points, features]
+        obs_edges = obs_edges.permute(0, 2, 1)
+        unobs_edges = unobs_edges.permute(0, 2, 1)
+        obs_points = obs_points.permute(0, 2, 1)
+
+        # Concatenate input features and flatten
+        cond = torch.cat((obs_edges, unobs_edges, obs_points), dim=2)
+        batch_size, _, num_points = cond.size()
+        cond = cond.view(batch_size, -1)
+
+        # Apply initial convolutions to 'x'
         x = self.conv1(x)
         x = self.norm1(x)
         x = self.relu(x)
-
-        t_emb = self.time_emb(t)
-        t_emb = t_emb.unsqueeze(1).expand(-1, x.shape[1], -1)
-        x = x + t_emb
-
-        attn_output, _ = self.cross_attn(x, cond, cond)
-        x = x + attn_output
-
         x = self.conv2(x)
         x = self.norm2(x)
+
+        # Apply time embedding to 'x'
+        t_embed = self.time_emb(t_embed)
+        t_embed = t_embed.unsqueeze(2)
+        x = x + t_embed
+
+        # Prepare 'x' for the cross-attention
+        seq_len = x.size(2)
+        x = x.permute(2, 0, 1)  # Shape: [seq_len, batch_size, out_channels]
+
+        # Prepare 'cond' for the cross-attention
+        # Repeat 'cond' to match the seq_len of 'x', and reshape
+        cond = cond.repeat(1, seq_len).view(batch_size, seq_len, -1)
+        cond = cond.permute(1, 0, 2)  # Shape: [seq_len, batch_size, embedding_dim]
+
+        # Apply cross-attention
+        x, _ = self.cross_attn(x, cond, cond)
+
+        # Permute 'x' back to [batch_size, out_channels, seq_len]
+        x = x.permute(1, 2, 0)
+
+        # Apply activation
         x = self.relu(x)
 
         return x
@@ -159,48 +199,47 @@ class DiffusionModel(nn.Module):
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
 
+        # Embedding layer to process concatenated input features
         self.embedding = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU()
         )
 
+        # UNetBlock instances for the U-Net architecture
         self.down1 = UNetBlock(3, hidden_dim, hidden_dim)
         self.down2 = UNetBlock(hidden_dim, hidden_dim * 2, hidden_dim)
         self.down3 = UNetBlock(hidden_dim * 2, hidden_dim * 4, hidden_dim)
-
         self.bottleneck = UNetBlock(hidden_dim * 4, hidden_dim * 8, hidden_dim)
-
         self.up1 = UNetBlock(hidden_dim * 12, hidden_dim * 4, hidden_dim)
         self.up2 = UNetBlock(hidden_dim * 6, hidden_dim * 2, hidden_dim)
         self.up3 = UNetBlock(hidden_dim * 3, hidden_dim, hidden_dim)
-
         self.out = nn.Conv1d(hidden_dim, 3, kernel_size=1)
 
     def forward(self, obs_edges, unobs_edges, obs_points, noisy_accum_points, t):
-        # Reshape input features
-        obs_edges = obs_edges.view(-1, self.num_points, 3).permute(0, 2, 1)
-        unobs_edges = unobs_edges.view(-1, self.num_points, 3).permute(0, 2, 1)
-        obs_points = obs_points.view(-1, self.num_points, 3).permute(0, 2, 1)
-        noisy_accum_points = noisy_accum_points.view(-1, self.num_points, 3).permute(0, 2, 1)
+        batch_size = obs_edges.size(0)
 
-        # Concatenate input features
-        cond = torch.cat((obs_edges, unobs_edges, obs_points), dim=1)
+        cond = torch.cat((obs_edges, unobs_edges, obs_points), dim=-1).view(batch_size, -1)
+
         cond = self.embedding(cond)
 
-        # U-Net with cross-attention
-        down1 = self.down1(noisy_accum_points, t, cond)
-        down2 = self.down2(down1, t, cond)
-        down3 = self.down3(down2, t, cond)
+        noisy_accum_points = noisy_accum_points.view(batch_size, self.num_points, 3).permute(0, 2, 1)
 
-        bottleneck = self.bottleneck(down3, t, cond)
+        # Reshape t to have the expected shape
+        t_embed = t.view(-1, 1).repeat(1, self.hidden_dim)
 
-        up1 = self.up1(torch.cat((bottleneck, down3), dim=1), t, cond)
-        up2 = self.up2(torch.cat((up1, down2), dim=1), t, cond)
-        up3 = self.up3(torch.cat((up2, down1), dim=1), t, cond)
+        down1 = self.down1(obs_edges, unobs_edges, obs_points, noisy_accum_points, t_embed)
+        down2 = self.down2(obs_edges, unobs_edges, obs_points, down1, t_embed)
+        down3 = self.down3(obs_edges, unobs_edges, obs_points, down2, t_embed)
 
-        out = self.out(up3)
+        bottleneck = self.bottleneck(obs_edges, unobs_edges, obs_points, down3, t_embed)
 
-        return out.permute(0, 2, 1)
+        up1 = self.up1(obs_edges, unobs_edges, obs_points, bottleneck, t_embed)
+        up2 = self.up2(obs_edges, unobs_edges, obs_points, up1, t_embed)
+        up3 = self.up3(obs_edges, unobs_edges, obs_points, up2, t_embed)
+
+        out = self.out(up3).permute(0, 2, 1)  # Adjusting the permutation as necessary
+
+        return out
 
 # Training loop
 def train(model, dataloader, optimizer, criterion, device, num_epochs, model_save_dir, num_timesteps, beta_start, beta_end):
@@ -417,11 +456,11 @@ def compute_metrics(model, test_dataloader, device):
 
 # Hyperparameters
 num_points = 2048  # Number of points to subsample
-input_dim = num_points * 3 * 3  # Assumes 3D points (x, y, z) for each input and 3 input tensors
-hidden_dim = 4096
+input_dim = num_points * 3 * 3  # Assumes 3D points (x, y, z) for each input tensor (obs_edges, unobs_edges, obs_points)
+hidden_dim = 128
 output_dim = num_points * 3
 learning_rate = 0.001
-batch_size = 64
+batch_size = 16
 num_epochs = 30
 num_timesteps = 1000
 beta_start = 0.0001
