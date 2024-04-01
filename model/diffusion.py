@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+import math
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
@@ -63,6 +64,11 @@ class SceneCompletionDataset(Dataset):
         obs_points = self.subsample_points(obs_points)
         accum_points = self.subsample_points(accum_points)
 
+        print(f"obs_edges shape: {obs_edges.shape}")
+        print(f"unobs_edges shape: {unobs_edges.shape}")
+        print(f"obs_points shape: {obs_points.shape}")
+        print(f"accum_points shape: {accum_points.shape}")
+
         return obs_edges, unobs_edges, obs_points, accum_points
 
     def preprocess_points(self, points):
@@ -121,7 +127,7 @@ class SceneCompletionDataset(Dataset):
 
 # U-Net block with cross-attention
 class UNetBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, time_emb_dim):
+    def __init__(self, in_channels, out_channels, time_emb_dim, num_points):
         super(UNetBlock, self).__init__()
         self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1)
         self.conv2 = nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1)
@@ -130,33 +136,8 @@ class UNetBlock(nn.Module):
         self.norm1 = nn.BatchNorm1d(out_channels)
         self.norm2 = nn.BatchNorm1d(out_channels)
         self.relu = nn.ReLU()
-        self.down1 = nn.Conv1d(in_channels, out_channels, kernel_size=3, stride=2, padding=1)
 
-        # Add the embedding layer
-        self.embedding = nn.Sequential(
-            nn.Linear(num_points * 9, hidden_dim),
-            nn.ReLU()
-        )
-
-    def forward(self, obs_edges, unobs_edges, obs_points, x, t_embed):
-        # Ensure input features have three dimensions, if not, unsqueeze the missing dimension
-        if obs_edges.dim() == 2:
-            obs_edges = obs_edges.unsqueeze(2)
-        if unobs_edges.dim() == 2:
-            unobs_edges = unobs_edges.unsqueeze(2)
-        if obs_points.dim() == 2:
-            obs_points = obs_points.unsqueeze(2)
-
-        # Permute input features to [batch_size, num_points, features]
-        obs_edges = obs_edges.permute(0, 2, 1)
-        unobs_edges = unobs_edges.permute(0, 2, 1)
-        obs_points = obs_points.permute(0, 2, 1)
-
-        # Concatenate input features and flatten
-        cond = torch.cat((obs_edges, unobs_edges, obs_points), dim=2)
-        batch_size, _, num_points = cond.size()
-        cond = cond.view(batch_size, -1)
-
+    def forward(self, cond, x, t_embed):
         # Apply initial convolutions to 'x'
         x = self.conv1(x)
         x = self.norm1(x)
@@ -169,14 +150,9 @@ class UNetBlock(nn.Module):
         t_embed = t_embed.unsqueeze(2)
         x = x + t_embed
 
-        # Prepare 'x' for the cross-attention
-        seq_len = x.size(2)
+        # Prepare 'x' and 'cond' for the cross-attention
         x = x.permute(2, 0, 1)  # Shape: [seq_len, batch_size, out_channels]
-
-        # Prepare 'cond' for the cross-attention
-        # Repeat 'cond' to match the seq_len of 'x', and reshape
-        cond = cond.repeat(1, seq_len).view(batch_size, seq_len, -1)
-        cond = cond.permute(1, 0, 2)  # Shape: [seq_len, batch_size, embedding_dim]
+        cond = cond.permute(2, 0, 1)  # Shape: [num_points, batch_size, out_channels]
 
         # Apply cross-attention
         x, _ = self.cross_attn(x, cond, cond)
@@ -191,53 +167,111 @@ class UNetBlock(nn.Module):
 
 # Diffusion model architecture
 class DiffusionModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_points, num_timesteps):
+    def __init__(self, hidden_dim, output_dim, num_points, num_timesteps):
         super(DiffusionModel, self).__init__()
         self.num_points = num_points
         self.num_timesteps = num_timesteps
-        self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
+        self.num_timesteps = num_timesteps
+        self.time_embedding = nn.Linear(hidden_dim, hidden_dim)
 
-        # Embedding layer to process concatenated input features
-        self.embedding = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
+        # Adaptive pooling layer to standardize input size
+        self.adaptive_pool = nn.AdaptiveAvgPool1d(2048)
+        self.cond_embedding = nn.Sequential(
+            nn.Linear(2048 * 3 * 3, hidden_dim),  # Adjusting to reflect the flattened, pooled output size
             nn.ReLU()
         )
 
-        # UNetBlock instances for the U-Net architecture
-        self.down1 = UNetBlock(3, hidden_dim, hidden_dim)
-        self.down2 = UNetBlock(hidden_dim, hidden_dim * 2, hidden_dim)
-        self.down3 = UNetBlock(hidden_dim * 2, hidden_dim * 4, hidden_dim)
-        self.bottleneck = UNetBlock(hidden_dim * 4, hidden_dim * 8, hidden_dim)
-        self.up1 = UNetBlock(hidden_dim * 12, hidden_dim * 4, hidden_dim)
-        self.up2 = UNetBlock(hidden_dim * 6, hidden_dim * 2, hidden_dim)
-        self.up3 = UNetBlock(hidden_dim * 3, hidden_dim, hidden_dim)
-        self.out = nn.Conv1d(hidden_dim, 3, kernel_size=1)
+        self.conv_input = nn.Conv1d(3, hidden_dim, kernel_size=1)
+
+        # U-Net architecture components
+        self.down1 = UNetBlock(hidden_dim, hidden_dim * 2, hidden_dim, 2048)
+        self.down2 = UNetBlock(hidden_dim * 2, hidden_dim * 4, hidden_dim, 2048)
+        self.down3 = UNetBlock(hidden_dim * 4, hidden_dim * 8, hidden_dim, 2048)
+        self.bottleneck = UNetBlock(hidden_dim * 8, hidden_dim * 16, hidden_dim, 2048)
+        self.up1 = UNetBlock(hidden_dim * 16, hidden_dim * 8, hidden_dim, 2048)
+        self.up2 = UNetBlock(hidden_dim * 8, hidden_dim * 4, hidden_dim, 2048)
+        self.up3 = UNetBlock(hidden_dim * 4, hidden_dim * 2, hidden_dim, 2048)
+        self.out = nn.Conv1d(hidden_dim * 2, 3, kernel_size=1)
+
+    def create_timestep_embedding(self, timesteps, device):
+        """
+        Creates a sinusoidal embedding for timesteps.
+
+        Parameters:
+        - timesteps: A 1D tensor of timesteps
+        - device: The device on which to create the embeddings
+
+        Returns:
+        - A 2D tensor of shape [batch_size, hidden_dim] containing the timestep embeddings
+        """
+        device = timesteps.device
+        half_dim = self.hidden_dim // 2
+        emb = math.log(10000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=device) * -emb)
+        emb = emb * timesteps[:, None].float()
+        emb = torch.cat((torch.sin(emb), torch.cos(emb)), dim=1)
+        if self.hidden_dim % 2 == 1:  # Add a zero column if hidden_dim is odd
+            emb = torch.cat((emb, torch.zeros(emb.shape[0], 1, device=device)), dim=1)
+        return emb
 
     def forward(self, obs_edges, unobs_edges, obs_points, noisy_accum_points, t):
         batch_size = obs_edges.size(0)
+        print(f"Batch size: {batch_size}")
 
-        cond = torch.cat((obs_edges, unobs_edges, obs_points), dim=-1).view(batch_size, -1)
+        # Concatenate inputs
+        cond = torch.cat((obs_edges, unobs_edges, obs_points), dim=1)
+        print(f"Shape after concatenation: {cond.shape}")
 
-        cond = self.embedding(cond)
+        # Reshape for pooling
+        cond = cond.view(batch_size * 3, -1, self.num_points)
+        print(f"Shape before pooling: {cond.shape}")
 
-        noisy_accum_points = noisy_accum_points.view(batch_size, self.num_points, 3).permute(0, 2, 1)
+        # Apply pooling
+        pooled_cond = self.adaptive_pool(cond)
+        print(f"Shape after pooling: {pooled_cond.shape}")
 
-        # Reshape t to have the expected shape
-        t_embed = t.view(-1, 1).repeat(1, self.hidden_dim)
+        # Reshape back to batch size with pooled feature dimension
+        pooled_cond = pooled_cond.view(batch_size, -1)
+        print(f"Shape after reshaping pooled_cond: {pooled_cond.shape}")
 
-        down1 = self.down1(obs_edges, unobs_edges, obs_points, noisy_accum_points, t_embed)
-        down2 = self.down2(obs_edges, unobs_edges, obs_points, down1, t_embed)
-        down3 = self.down3(obs_edges, unobs_edges, obs_points, down2, t_embed)
+        # Conditional embedding
+        cond_embedding = self.cond_embedding(pooled_cond)
+        print(f"Shape after conditional embedding: {cond_embedding.shape}")
 
-        bottleneck = self.bottleneck(obs_edges, unobs_edges, obs_points, down3, t_embed)
+        # Prepare noisy_accum_points
+        noisy_accum_points = noisy_accum_points.permute(0, 2, 1)
+        print(f"Shape of noisy_accum_points after permute: {noisy_accum_points.shape}")
 
-        up1 = self.up1(obs_edges, unobs_edges, obs_points, bottleneck, t_embed)
-        up2 = self.up2(obs_edges, unobs_edges, obs_points, up1, t_embed)
-        up3 = self.up3(obs_edges, unobs_edges, obs_points, up2, t_embed)
+        noisy_accum_points = self.conv_input(noisy_accum_points)
+        print(f"Shape of noisy_accum_points after conv_input: {noisy_accum_points.shape}")
 
-        out = self.out(up3).permute(0, 2, 1)  # Adjusting the permutation as necessary
+        # Timestep embedding
+        t_embed = self.create_timestep_embedding(t, batch_size)
+        print(f"Shape of timestep embeddings: {t_embed.shape}")
+
+        # Forward pass through U-Net
+        down1 = self.down1(noisy_accum_points, cond_embedding, t_embed)
+        print(f"Shape after down1: {down1.shape}")
+        down2 = self.down2(down1, cond_embedding, t_embed)
+        print(f"Shape after down2: {down2.shape}")
+        down3 = self.down3(down2, cond_embedding, t_embed)
+        print(f"Shape after down3: {down3.shape}")
+
+        bottleneck = self.bottleneck(down3, cond_embedding, t_embed)
+        print(f"Shape after bottleneck: {bottleneck.shape}")
+
+        up1 = self.up1(torch.cat((self.upsample1(bottleneck), down3), dim=1), cond_embedding, t_embed)
+        print(f"Shape after up1: {up1.shape}")
+        up2 = self.up2(torch.cat((self.upsample2(up1), down2), dim=1), cond_embedding, t_embed)
+        print(f"Shape after up2: {up2.shape}")
+        up3 = self.up3(torch.cat((self.upsample3(up2), down1), dim=1), cond_embedding, t_embed)
+        print(f"Shape after up3: {up3.shape}")
+
+        # Final output adjustment
+        out = self.out(up3).permute(0, 2, 1)
+        print(f"Final output shape: {out.shape}")
 
         return out
 
@@ -457,7 +491,7 @@ def compute_metrics(model, test_dataloader, device):
 # Hyperparameters
 num_points = 2048  # Number of points to subsample
 input_dim = num_points * 3 * 3  # Assumes 3D points (x, y, z) for each input tensor (obs_edges, unobs_edges, obs_points)
-hidden_dim = 128
+hidden_dim = 512
 output_dim = num_points * 3
 learning_rate = 0.001
 batch_size = 16
@@ -502,14 +536,13 @@ if use_ensemble:
     models = []
     optimizers = []
     for i in range(num_ensemble):
-        model = DiffusionModel(input_dim, hidden_dim, output_dim, num_points, num_timesteps).to(device)
+        model = DiffusionModel(hidden_dim, output_dim, num_points, num_timesteps).to(device)
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         models.append(model)
         optimizers.append(optimizer)
 else:
-    model = DiffusionModel(input_dim, hidden_dim, output_dim, num_points, num_timesteps).to(device)
+    model = DiffusionModel(hidden_dim, output_dim, num_points, num_timesteps).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
 criterion = nn.MSELoss()
 
 # Print the size of the network in parameters
