@@ -11,9 +11,7 @@ Specifically it has:
 
 ## Resulting extracted data
 
-The data that is extracted is done per lidar scan and is centered about the lidar's frame, translated to the current scan's estimated pose.
-
-Each scan extracts building data:
+The data that is extracted is done per lidar scan and is centered about the lidar's frame, translated to the current scan's estimated pose. Each scan extracts building data:
 
 1) The OSM building polygons belonging to buildings that have been scanned by more than 100 lidar points.
 2) The total set (over entire sequence) of accumulated points observed for each building in current lidar frame.
