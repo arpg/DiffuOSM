@@ -160,11 +160,13 @@ def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_
                 
                 if len(points_within_polygon) > 0:
                     if frame_num is not None:
+                        # Not using batch processing
                         building.scan_list.append(frame_num)
                         building.per_scan_obs_points = points_within_polygon
                         building.curr_accum_obs_points.extend(points_within_polygon)
                         update_per_frame_data(building, building_edges_frame, observed_points_frame, curr_accum_points_frame)
                     else:
+                        # Using batch processing
                         building.total_accum_obs_points.extend(points_within_polygon)
                     break
         
