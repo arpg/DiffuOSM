@@ -13,7 +13,6 @@ from scipy.spatial import KDTree as scipyKDTree
 from scipy.spatial import cKDTree
 from shapely.geometry import Polygon, Point
 import pickle
-import msgpack
 from tqdm import tqdm
 
 # Internal
