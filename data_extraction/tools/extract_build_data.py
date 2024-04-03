@@ -66,11 +66,11 @@ class ExtractBuildingData:
 
     def initiate_extraction(self):
         self.seq_extraction_begin = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(f'Sequence {self.seq} data extraction beginning. Timestamp: {self.seq_extraction_begin}\n')
+        print(f'\n\nSequence {self.seq} data extraction beginning. Timestamp: {self.seq_extraction_begin}\n')
 
     def conclude_extraction(self):
         self.seq_extraction_end = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(f'Sequence {self.seq} completed. Timestamp: {self.seq_extraction_end}\n')
+        print(f'\nSequence {self.seq} completed. Timestamp: {self.seq_extraction_end}\n')
 
     def find_min_max_file_names(self):
         """
@@ -97,7 +97,7 @@ class ExtractBuildingData:
         xyz_point_clouds, self.xyz_positions = get_pointcloud_from_txt(self.oxts_pose_file_path)
 
     def extract_obs_and_accum_obs_points(self):
-        print("\n     - Step 1) Begining observed point extraction from each frame.")
+        print("\n     - Step 1) Extracting observed points from each frame.")
 
         # Initial filter of OSM buildings via boundary around IMU path in lat-long
         self.building_list = get_buildings_near_poses(self.osm_file_path, self.xyz_positions, self.near_path_threshold_latlon)
@@ -136,7 +136,7 @@ class ExtractBuildingData:
         del self.building_list
 
     def extract_total_and_unobs_points(self):
-        print("\n     - Step 2) Begining unobserved point extraction from each frame.")
+        print("\n     - Step 1) Extracting unobserved points from each frame.")
 
         num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         progress_bar = tqdm(total=num_frames, desc="            ")
