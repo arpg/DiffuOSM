@@ -138,27 +138,26 @@ class ExtractBuildingData:
         # Garbage collect
         del self.building_list
 
-
-
     def extract_total_and_unobs_points(self):
         print("\nStep 2) Begining extraction from each frame.")
+
+        num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
+        progress_bar = tqdm(total=num_frames, desc="            ")
         for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
             self.process_scan(frame_num)
-
+            progress_bar.update(1)
+            
     def process_scan(self, frame_num):
         """
         """
-        
-        new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
 
-        if new_pcd is not None:
-            if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
-                with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
-                    thread_executor.submit(self.extract_and_save_per_scan_points, new_pcd, frame_num)
-            else:
-                    self.extract_and_save_per_scan_points(new_pcd, frame_num)
+        if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
+            with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
+                thread_executor.submit(self.extract_and_save_per_scan_points, new_pcd, frame_num)
+        else:
+                self.extract_and_save_per_scan_points(frame_num)
 
-    def extract_and_save_per_scan_points(self, new_pcd_3D, frame_num):
+    def extract_and_save_per_scan_points(self, frame_num):
         """
         """
 
