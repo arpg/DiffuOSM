@@ -1,6 +1,26 @@
-# The KITTI-360-OSM Extended Dataset
+# DiffuOSM
 
-This repository contains the code to interact with and extract needed files for the KITTI-360-OSM dataset.
+This repository contains the scripts used for data extraction, experimental testing, and model training for the DiffuOSM research project.
+
+Specifically it has:
+
+1) Code to extract needed data for training the DiffuOSM model from KITTI-360, as well as data collected on the CU Boulder campus.
+2) Code to interact with extracted data.
+3) Code for training and testing the diffusion model.
+4) A ROS1 (ROS2 coming soon) package that allows for a user to use the DiffuOSM model alongside lidar-based SLAM.
+
+## Resulting extracted data
+
+The data that is extracted is done per lidar scan and is centered about the lidar's frame, translated to the current scan's estimated pose. Each scan extracts building data:
+
+1) The OSM building polygons belonging to buildings that have been scanned by more than 100 lidar points.
+2) The total set (over entire sequence) of accumulated points observed for each building in current lidar frame.
+   1) total_accum_points = append({observed_points}) for all scans in sequence
+3) The current set (up to this scan) of accumulated points observed for each building in current lidar frame.
+4) The current set (up to this scan) of unobserved points for each building in current lidar frame.
+   1) {total accum} - {current accum obs}
+5) The total unobserved.1=
+   1) {total accum} - {current obs}
 
 ## Dataset Adjustments from original
 
