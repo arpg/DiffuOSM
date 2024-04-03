@@ -124,7 +124,7 @@ def building_offset_to_o3d_lineset(building_list):
     building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
     return building_line_set
 
-def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_latlong_list, near_path_threshold, extracted_per_frame_dir, show_prog_bar=False):
+def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_latlong_list, near_path_threshold):
     # Get 2D representation of accumulated_color_pc
     points_2D = np.asarray(np.copy(point_cloud_3D.points))
     points_2D[:, 2] = 0
@@ -133,13 +133,6 @@ def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_
     building_polygons = [Polygon(building.offset_vertices) for building in building_list]
     point_cloud_2D_kdtree = cKDTree(points_2D) # cKDTree
     points_3d = np.asarray(point_cloud_3D.points)
-
-    # Initialize tqdm progress bar
-    if show_prog_bar: progress_bar = tqdm(total=len(building_list), desc="            ")
-
-    building_edges_frame = []
-    observed_points_frame = []
-    curr_accum_points_frame = []
     
     for building, building_polygon in zip(building_list, building_polygons):
         for pos_latlong in pos_latlong_list:
@@ -159,28 +152,12 @@ def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_
                 ]
                 
                 if len(points_within_polygon) > 0:
-                    if frame_num is not None:
-                        # Not using batch processing
-                        building.scan_list.append(frame_num)
-                        building.per_scan_obs_points = points_within_polygon
-                        building.curr_accum_obs_points.extend(points_within_polygon)
-                        update_per_frame_data(building, building_edges_frame, observed_points_frame, curr_accum_points_frame)
-                    else:
-                        # Using batch processing
-                        building.total_accum_obs_points.extend(points_within_polygon)
-                    break
-        
-        # Update progress bar
-        if show_prog_bar: progress_bar.update(1)
-    
-    save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame)
-    # Close progress bar
-    if show_prog_bar: progress_bar.close()
-    
+                    building.set_curr_obs_points(frame_num, points_within_polygon)
+
 def get_building_hit_list(building_list, min_num_points): 
     hit_building_list = []
     for building in building_list:
-        building.num_points_total_accum = len(building.curr_accum_obs_points)
+        building.num_points_total_accum = len(building.get_total_accum_obs_points())
         if building.num_points_total_accum >= min_num_points:
             hit_building_list.append(building)
 
@@ -282,28 +259,48 @@ def convert_and_save_oxts_poses(imu_poses_file, output_path):
             oxts_line = ' '.join(['%.6f' % x for x in oxts_])
             f.write(f'{oxts_line}\n')
 
-def save_per_scan_unobs_data(extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame):
-    """
-    """
+# def save_per_scan_unobs_data(extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame):
+#     """
+#     """
 
-    # Save total accumulated points for all buildings that have been observed by current scan
-    frame_totalbuildaccum_scan_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin')
-    with open(frame_totalbuildaccum_scan_file, 'wb') as bin_file:
-        np.array(total_accum_points_frame).tofile(bin_file)
+#     # Save total accumulated points for all buildings that have been observed by current scan
+#     frame_totalbuildaccum_scan_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin')
+#     with open(frame_totalbuildaccum_scan_file, 'wb') as bin_file:
+#         np.array(total_accum_points_frame).tofile(bin_file)
 
-    # Save current scan difference from total
-    if len(unobserved_points_frame)>0:
-        frame_unobs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
-        with open(frame_unobs_points_file, 'wb') as bin_file:
-            np.array(unobserved_points_frame).tofile(bin_file)
+#     # Save current scan difference from total
+#     if len(unobserved_points_frame)>0:
+#         frame_unobs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
+#         with open(frame_unobs_points_file, 'wb') as bin_file:
+#             np.array(unobserved_points_frame).tofile(bin_file)
 
-    # Save current accumulated difference from total
-    if len(unobserved_curr_accum_points_frame)>0:
-        frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
-        with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
-            np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
+#     # Save current accumulated difference from total
+#     if len(unobserved_curr_accum_points_frame)>0:
+#         frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
+#         with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
+#             np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
 
-def save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame):
+# def save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame):
+#     """
+#     """
+    
+#     # Save all edges from buildings that were observed in current scan
+#     frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges.bin')
+#     with open(frame_build_edges_file, 'wb') as bin_file:
+#         np.array(building_edges_frame).tofile(bin_file)
+        
+#     # Save observed_points_frame
+#     frame_obs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin')
+#     with open(frame_obs_points_file, 'wb') as bin_file:
+#         np.array(observed_points_frame).tofile(bin_file)
+
+#     # Save the current accumulation of points of buildings that were observed in this scan
+#     frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin')
+#     with open(frame_obs_curr_accum_points_file, 'wb') as bin_file:
+#         np.array(curr_accum_points_frame).tofile(bin_file)
+
+def save_per_scan_extracted_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame,
+                                unobserved_points_frame, unobserved_curr_accum_points_frame):
     """
     """
     
@@ -311,16 +308,33 @@ def save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_fr
     frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges.bin')
     with open(frame_build_edges_file, 'wb') as bin_file:
         np.array(building_edges_frame).tofile(bin_file)
+
+    # Save total accumulated points for all buildings that have been observed by current scan
+    frame_totalbuildaccum_scan_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin')
+    with open(frame_totalbuildaccum_scan_file, 'wb') as bin_file:
+        np.array(total_accum_points_frame).tofile(bin_file)
         
     # Save observed_points_frame
     frame_obs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin')
     with open(frame_obs_points_file, 'wb') as bin_file:
         np.array(observed_points_frame).tofile(bin_file)
 
+    # Save current scan difference from total
+    if len(unobserved_points_frame)>0:
+        frame_unobs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
+        with open(frame_unobs_points_file, 'wb') as bin_file:
+            np.array(unobserved_points_frame).tofile(bin_file)
+
     # Save the current accumulation of points of buildings that were observed in this scan
     frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin')
     with open(frame_obs_curr_accum_points_file, 'wb') as bin_file:
         np.array(curr_accum_points_frame).tofile(bin_file)
+
+    # Save current accumulated difference from total
+    if len(unobserved_curr_accum_points_frame)>0:
+        frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
+        with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
+            np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
 
 def save_building_edges_and_accum(extracted_building_data_dir, hit_building_list):
     '''
@@ -433,14 +447,14 @@ def vertex_list_to_o3d_lineset(vertices):
 def vis_total_accum_points(build_list):
     build_total_accum_points_frame = []
     for build in build_list:
-        # Using build.curr_accum_obs_points for now
-        total_accum_obs_points = np.asarray(build.curr_accum_obs_points)
+        total_accum_obs_points = np.asarray(build.get_total_accum_obs_points()).reshape(-1, 3)
         total_accum_obs_points[:,2] = total_accum_obs_points[:,2] - np.min(total_accum_obs_points[:,2])
         build_total_accum_points_frame.extend(total_accum_obs_points) 
 
     build_line_set = building_list_to_o3d_lineset(build_list)
     build_accum_points_pcd = o3d.geometry.PointCloud()
-    build_accum_points_pcd.points = o3d.utility.Vector3dVector(np.asarray(build_total_accum_points_frame))
+    print(f"points length: {len(build_total_accum_points_frame)}")
+    build_accum_points_pcd.points = o3d.utility.Vector3dVector(build_total_accum_points_frame)
     o3d.visualization.draw_geometries([build_line_set, build_accum_points_pcd])
 
 
