@@ -1,159 +1,92 @@
 '''
-By: Doncey Albin
-
-
-Refactoring of kitti360scripts and recoverKitti repositories was made in order to create this pipeline.
-I couldn't have done it without them.
-    - kitti360scripts:
-    - recoverKitti:
-
-
-Genral utilities for running code.
+Doncey Albin
 
 '''
+
 import os
+import glob
 import numpy as np
 import open3d as o3d
 import osmnx as ox
-from sklearn.neighbors import KDTree
+from sklearn.neighbors import KDTree as sklearnKDTree
+from scipy.spatial import KDTree as scipyKDTree
+from scipy.spatial import cKDTree
+from shapely.geometry import Polygon, Point
+import pickle
+import msgpack
+from tqdm import tqdm
 
 # Internal
 import tools.osm_building as osm_building
 from tools.convert_oxts_pose import *
 
-def read_label_bin_file(file_path):
-    """
-    Reads a .bin file containing point cloud labels.
-    """
-    labels = np.fromfile(file_path, dtype=np.int16)
-    return labels.reshape(-1)
-
-def read_bin_file(file_path):
-    """
-    Reads a .bin file containing point cloud data.
-    Assumes each point is represented by four float32 values (x, y, z, intensity).
-    """
-    point_cloud = np.fromfile(file_path, dtype=np.float32)
-    return point_cloud.reshape(-1, 4)
-
-def get_pointcloud_from_txt(file_path):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-
-    xyz_positions = []
-    for line in lines:
-        matrix_elements = np.array(line.split(), dtype=float)
-        x, y = matrix_elements[0], matrix_elements[1]
-        xyz_positions.append([x, y, 0])
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(xyz_positions)
-    return pcd, xyz_positions
-
-def create_circle(center, radius, num_points=30):
-    """
-    Create a circle at a given center point.
-
-    :param center: Center of the circle (x, y, z).
-    :param radius: Radius of the circle.
-    :param num_points: Number of points to approximate the circle.
-    :return: Open3D point cloud representing the circle.
-    """
-    points = []
-    for i in range(num_points):
-        angle = 2 * np.pi * i / num_points
-        x = center[0] + radius * np.cos(angle)
-        y = center[1] + radius * np.sin(angle)
-        z = 0 #center[2]
-        points.append([x, y, z])
-    
-    circle_pcd = o3d.geometry.PointCloud()
-    circle_pcd.points = o3d.utility.Vector3dVector(points)
-    return circle_pcd
-
-
-
-
-
-
-
-
-
-
-
-
-def visualize_point_cloud(points):
-    """
-    Visualizes the point cloud data using Open3D.
-    """
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points[:, :3])  # Using only x, y, z for point cloud
-    return pcd
-
-def discretize_edge(start_point, end_point, num_points):
-    """
-    Generate linearly spaced points between start_point and end_point.
-    """
-    return np.linspace(start_point, end_point, num_points, axis=0)
-
-def is_point_near_edge(point_cloud, edge_points, threshold):
-    """
-    Check if any point in point_cloud is within 'threshold' distance of any point in edge_points.
-    """
-    for point in edge_points:
-        # Compute distances from the current edge point to all points in the point cloud
-        distances = np.linalg.norm(np.asarray(point_cloud.points) - point, axis=1)
-        if np.any(distances < threshold):
-            print("     point is near")
-            return True
-    return False
-
-def check_building_proximity(building_coords, point_cloud, threshold):
-    """
-    Check if any point of the building is near the point cloud.
-    """
-    for coord in building_coords:
-        if is_point_near_edge(point_cloud, coord, threshold):
-            return True
-    return False
-
 min_vert_list = []
 def building_within_bounds(building_vertex, xyz_positions, threshold):
     vert_dist_arr = []
     building_vertex = np.array(building_vertex)
-    # print(f"building_vertex[0]: {building_vertex[0]}")
+
     for pos in xyz_positions:
         # pos[0] = pos[1]
         # pos[1] = pos[0]
         vert_dist = np.sqrt((pos[1] - building_vertex[0])*(pos[1] - building_vertex[0])+(pos[0] - building_vertex[1])*(pos[0] - building_vertex[1]))
-        # print(f"pos: {pos[:2]}")
-        # print(f"building_vertex: {building_vertex}")
-        # vert_dist = np.linalg.norm(building_vertex - pos[:2])
-        # print(f"vert dist: {vert_dist}")
         vert_dist_arr.append(vert_dist)
     min_vert_dist = np.min(vert_dist_arr)
     min_vert_list.append(min_vert_dist)
-    # print(f"min vert dist: {min_vert_dist}")
+
     return min_vert_dist <= threshold
 
-def get_all_buildings(osm_file_path):
-    buildings = ox.geometries_from_xml(osm_file_path, tags={'building': True})
-    # Process Buildings as LineSets
-    building_lines = []
-    for _, building in buildings.iterrows():
-        if building.geometry.type == 'Polygon':
-            exterior_coords = building.geometry.exterior.coords
-            for i in range(len(exterior_coords) - 1):
-                start_point = [exterior_coords[i][0], exterior_coords[i][1], 0]
-                end_point = [exterior_coords[i + 1][0], exterior_coords[i + 1][1], 0]
-                building_lines.append([start_point, end_point])
+# TODO: Use this and fix how osm data is flipped
+# def get_all_osm_buildings(osm_file_path):
+#     buildings = ox.geometries_from_xml(osm_file_path, tags={'building': True})
+#     # Process Buildings as LineSets
+#     building_lines = []
+#     for _, building in buildings.iterrows():
+#         if building.geometry.type == 'Polygon':
+#             exterior_coords = building.geometry.exterior.coords
+#             for i in range(len(exterior_coords) - 1):
+#                 start_point = [exterior_coords[i][0], exterior_coords[i][1], 0]
+#                 end_point = [exterior_coords[i + 1][0], exterior_coords[i + 1][1], 0]
+#                 building_lines.append([start_point, end_point])
+#     return building_list
 
-    building_line_set = o3d.geometry.LineSet()
-    building_points = [point for line in building_lines for point in line]
-    building_lines_idx = [[i, i + 1] for i in range(0, len(building_points), 2)]
-    building_line_set.points = o3d.utility.Vector3dVector(building_points)
-    building_line_set.lines = o3d.utility.Vector2iVector(building_lines_idx)
-    building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
-    return building_lines, building_line_set
+def find_file_max_value(dir_path):
+    pattern = os.path.join(dir_path, '*.msgpack')
+    files = glob.glob(pattern)
+
+    max_frame_values = []
+    for file in files:
+        try:
+            filename = os.path.basename(file)
+            components = filename.split('_')
+            max_frame = int(components[3])      # 'maxframe' value is the fourth component in the filename
+            max_frame_values.append(max_frame)
+        except (IndexError, ValueError) as e:
+            print(f"Skipping file {filename} due to error: {e}")
+    
+    if not max_frame_values:
+        return 0
+    
+    # Find the maximum value
+    max_frame_max_value = max(max_frame_values)
+
+    return max_frame_max_value
+    
+def get_all_osm_buildings(osm_file_path):
+    building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
+    building_list = []
+    building_lines = []
+    for _, building in building_features.iterrows():
+        if building.geometry.geom_type == 'Polygon':
+            exterior_coords = building.geometry.exterior.coords
+            per_building_lines = []
+            for i in range(len(exterior_coords) - 1):
+                start_point = [exterior_coords[i][1], exterior_coords[i][0], 0]
+                end_point = [exterior_coords[i + 1][1], exterior_coords[i + 1][0], 0]
+                per_building_lines.append([start_point, end_point])
+                building_lines.append([start_point, end_point])
+            new_building = osm_building.OSMBuilding(per_building_lines)
+            building_list.append(new_building)
+    return building_list
 
 def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
     building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
@@ -180,7 +113,7 @@ def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
     building_line_set.lines = o3d.utility.Vector2iVector(building_lines_idx)
     building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
 
-    return building_list, building_line_set
+    return building_list
 
 def building_offset_to_o3d_lineset(building_list):
     building_line_set = o3d.geometry.LineSet()
@@ -191,88 +124,93 @@ def building_offset_to_o3d_lineset(building_list):
     building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
     return building_line_set
 
-def discretize_all_building_edges(building_list, num_points_per_edge):
-    for building in building_list:
-        for edge in building.edges:
-            edge_points = np.linspace(edge.edge_vertices[0], edge.edge_vertices[1], num_points_per_edge, axis=0)
-            for edge_point in edge_points:
-                edge.expanded_vertices.append(edge_point)
+def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_latlong_list, near_path_threshold, extracted_per_frame_dir, show_prog_bar=False):
+    # Get 2D representation of accumulated_color_pc
+    points_2D = np.asarray(np.copy(point_cloud_3D.points))
+    points_2D[:, 2] = 0
+
+    # Preprocess building offset vertices to Shapely Polygon objects
+    building_polygons = [Polygon(building.offset_vertices) for building in building_list]
+    point_cloud_2D_kdtree = cKDTree(points_2D) # cKDTree
+    points_3d = np.asarray(point_cloud_3D.points)
+
+    # Initialize tqdm progress bar
+    if show_prog_bar: progress_bar = tqdm(total=len(building_list), desc="            ")
+
+    building_edges_frame = []
+    observed_points_frame = []
+    curr_accum_points_frame = []
     
-def get_building_edge_bounds(building_list, radius=0.000008):
-    all_edge_circles = o3d.geometry.PointCloud()
-    for building in building_list:
-            for edge in building.edges:
-                edge_circles = [create_circle(edge_point, radius) for edge_point in edge.expanded_vertices]  # Adjust radius as needed
-                for edge_circle in edge_circles:
-                    all_edge_circles += edge_circle
-    return all_edge_circles
-
-def calc_points_on_building_edges(building_list, point_cloud_3D, point_cloud_2D, label_filepath, radius):
-    # Filter buildings only hit by "building" points here, so that pcd can contain all labels
-    # labels_np = read_label_bin_file(label_filepath)
-    # label_mask = (labels_np == 11) | (labels_np == 0)
-    # pc = np.asarray(point_cloud_3D.points)
-    # pc = pc[label_mask]
-    # labels_np = labels_np[label_mask]
-
-    len_building_list = len(building_list)
-    point_cloud_2D_kdtree = KDTree(np.asarray(point_cloud_2D.points))
-    for iter, building in enumerate(building_list):
-        iter += 1
-        print(f"        --> Building: {iter} / {len_building_list}")
-        for edge in building.edges:
-            for expanded_edge in edge.expanded_vertices:
-                distances, indices = point_cloud_2D_kdtree.query([expanded_edge])
+    for building, building_polygon in zip(building_list, building_polygons):
+        for pos_latlong in pos_latlong_list:
+            distance = np.linalg.norm(pos_latlong[:2] - building.center[:2])
+            if distance <= near_path_threshold:
+                # Filter points within a threshold distance of the building center using KDTree
+                indices = point_cloud_2D_kdtree.query_ball_point(building.center, building.max_dist_vertex_from_center)
                 
-                # Use a mask to filter 3D points that are within the XY radius from the edge point
-                mask = abs(distances) <= radius
-                masked_points = np.asarray(point_cloud_3D.points)[indices[mask]]
-                
-                # Update building statistics based on the number of points within the radius
-                edge.times_hit += len(masked_points)
-                building.times_hit += len(masked_points)
-                building.accum_points.extend(masked_points)
+                # Convert indices to numpy array
+                indices = np.array(indices)
 
-def get_building_hit_list(building_list, min_edges_hit): 
+                # Filter points within the polygon
+                points_within_polygon = [
+                    points_3d[idx]
+                    for idx in indices
+                    if building_polygon.contains(Point(points_3d[idx, :2]))
+                ]
+                
+                if len(points_within_polygon) > 0:
+                    if frame_num is not None:
+                        building.scan_list.append(frame_num)
+                        building.per_scan_obs_points = points_within_polygon
+                        building.curr_accum_obs_points.extend(points_within_polygon)
+                        update_per_frame_data(building, building_edges_frame, observed_points_frame, curr_accum_points_frame)
+                    else:
+                        building.total_accum_obs_points.extend(points_within_polygon)
+                    break
+        
+        # Update progress bar
+        if show_prog_bar: progress_bar.update(1)
+    
+    save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame)
+    # Close progress bar
+    if show_prog_bar: progress_bar.close()
+    
+def get_building_hit_list(building_list, min_num_points): 
     hit_building_list = []
     for building in building_list:
-        for edge in building.edges:
-            if (edge.times_hit > 0):
-                building.edges_hit += 1
-        if building.edges_hit >= min_edges_hit:
+        building.num_points_total_accum = len(building.curr_accum_obs_points)
+        if building.num_points_total_accum >= min_num_points:
             hit_building_list.append(building)
 
-    hit_building_line_set = o3d.geometry.LineSet()
-    hit_building_points = [point for building in hit_building_list for edge in building.edges for point in edge.edge_vertices]
-    # hit_building_points = [point for building in hit_building_list for line in building.edges for point in line]
-    hit_building_lines_idx = []
-    hit_building_lines_idx = [[i, i + 1] for i in range(0, len(hit_building_points) - 1, 2)]
-    hit_building_line_set.points = o3d.utility.Vector3dVector(hit_building_points)
-    hit_building_line_set.lines = o3d.utility.Vector2iVector(hit_building_lines_idx)
-    hit_building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
+    return hit_building_list
 
-    return hit_building_list, hit_building_line_set
+def update_per_frame_data(hit_building, building_edges_frame, observed_points_frame, curr_accum_points_frame):
+    """
+    """
+    
+    building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
+    observed_points_frame.extend(hit_building.per_scan_obs_points)
+    curr_accum_points_frame.extend(hit_building.curr_accum_obs_points)
 
 
-def read_building_pc_file(file_path):
-    point_cloud = np.fromfile(file_path)
-    return point_cloud.reshape(-1, 3)
 
-def read_building_edges_file(building_edges_file):
-    with open(building_edges_file, 'rb') as bin_file:
-        edges_array = np.fromfile(bin_file, dtype=float).reshape(-1, 2, 3)  # Reshape to 3D array
-    return edges_array
 
-def get_max_build_index(edges_accum_dir):
-    build_index = 1
-    while True:
-        build_pc_file = os.path.join(edges_accum_dir, f'build_{build_index}_accum.bin')
-        if os.path.exists(build_pc_file):
-            build_index += 1
-        else:
-            break
 
-    return build_index
+
+'''
+Create:
+
+File_processor.py
+
+'''
+
+def save_pkl_data(filename, data):
+    with open(filename, 'wb') as f:
+        pickle.dump(data, f)
+
+def load_pkl_data(filename):
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
 
 def get_building_hit_list_from_files(building_edgeaccum_dir):
     hit_building_list = []
@@ -295,14 +233,219 @@ def get_building_hit_list_from_files(building_edgeaccum_dir):
 
         hit_building_list.append(new_building)
     
-    # hit_build_edges_list = np.array(hit_build_edges_list).reshape(-1, 3)
-    building_points = [point for line in hit_build_edges_list for point in line]
-    hit_building_lines_idx = [[i, i + 1] for i in range(0, len(building_points) - 1, 2)]
-    hit_building_line_set = o3d.geometry.LineSet()
-    hit_building_line_set.points = o3d.utility.Vector3dVector(building_points)
-    hit_building_line_set.lines = o3d.utility.Vector2iVector(hit_building_lines_idx)
+    return hit_building_list
+
+def get_max_build_index(edges_accum_dir):
+    build_index = 1
+    while True:
+        build_pc_file = os.path.join(edges_accum_dir, f'build_{build_index}_accum.bin')
+        if os.path.exists(build_pc_file):
+            build_index += 1
+        else:
+            break
+    return build_index
+
+def read_building_edges_file(building_edges_file):
+    with open(building_edges_file, 'rb') as bin_file:
+        edges_array = np.fromfile(bin_file, dtype=float).reshape(-1, 2, 3)  # Reshape to 3D array
+    return edges_array
+
+def read_building_pc_file(file_path):
+    point_cloud = np.fromfile(file_path)
+    return point_cloud.reshape(-1, 3)
     
-    return hit_building_list, hit_building_line_set
+def read_label_bin_file(file_path):
+    """
+    Reads a .bin file containing point cloud labels.
+    """
+    labels = np.fromfile(file_path, dtype=np.int16)
+    return labels.reshape(-1)
+
+def read_bin_file(file_path):
+    """
+    Reads a .bin file containing point cloud data.
+    Assumes each point is represented by four float32 values (x, y, z, intensity).
+    """
+    point_cloud = np.fromfile(file_path, dtype=np.float32)
+    return point_cloud.reshape(-1, 4)
+
+def convert_and_save_oxts_poses(imu_poses_file, output_path):
+    """
+    """
+    [timestamps, poses] = loadPoses(imu_poses_file)
+    poses = postprocessPoses(poses)
+    oxts = convertPoseToOxts(poses)  # Convert to lat/lon coordinate
+    with open(output_path, 'w') as f:
+        for oxts_ in oxts:
+            oxts_line = ' '.join(['%.6f' % x for x in oxts_])
+            f.write(f'{oxts_line}\n')
+
+def save_per_scan_unobs_data(extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame):
+    """
+    """
+
+    # Save total accumulated points for all buildings that have been observed by current scan
+    frame_totalbuildaccum_scan_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin')
+    with open(frame_totalbuildaccum_scan_file, 'wb') as bin_file:
+        np.array(total_accum_points_frame).tofile(bin_file)
+
+    # Save current scan difference from total
+    if len(unobserved_points_frame)>0:
+        frame_unobs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
+        with open(frame_unobs_points_file, 'wb') as bin_file:
+            np.array(unobserved_points_frame).tofile(bin_file)
+
+    # Save current accumulated difference from total
+    if len(unobserved_curr_accum_points_frame)>0:
+        frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
+        with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
+            np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
+
+def save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame):
+    """
+    """
+    
+    # Save all edges from buildings that were observed in current scan
+    frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges.bin')
+    with open(frame_build_edges_file, 'wb') as bin_file:
+        np.array(building_edges_frame).tofile(bin_file)
+        
+    # Save observed_points_frame
+    frame_obs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin')
+    with open(frame_obs_points_file, 'wb') as bin_file:
+        np.array(observed_points_frame).tofile(bin_file)
+
+    # Save the current accumulation of points of buildings that were observed in this scan
+    frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin')
+    with open(frame_obs_curr_accum_points_file, 'wb') as bin_file:
+        np.array(curr_accum_points_frame).tofile(bin_file)
+
+def save_building_edges_and_accum(extracted_building_data_dir, hit_building_list):
+    '''
+    Save building edges and accumulated scan as np .bin file for each building that is hit by points during seq.
+    '''
+    for iter, hit_building in enumerate(hit_building_list):
+        iter += 1
+        
+        hit_building_edges = []
+        for edge in hit_building.edges:
+            hit_building_edges.append(edge.edge_vertices)
+        hit_building_edges = np.array(hit_building_edges)
+
+        building_edges_file = os.path.join(extracted_building_data_dir, 'per_building', 'edges_accum', f'build_{iter}_edges.bin')
+        with open(building_edges_file, 'wb') as bin_file:
+            np.array(hit_building_edges).tofile(bin_file)
+
+        building_accum_scan_file = os.path.join(extracted_building_data_dir, 'per_building', 'edges_accum', f'build_{iter}_accum.bin')
+        with open(building_accum_scan_file, 'wb') as bin_file:
+            np.array(hit_building.accum_points).tofile(bin_file)
+
+
+
+
+
+
+
+'''
+Create:
+
+o3d_processor.py
+
+'''
+
+def get_pointcloud_from_txt(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    xyz_positions = []
+    for line in lines:
+        matrix_elements = np.array(line.split(), dtype=float)
+        x, y = matrix_elements[0], matrix_elements[1]
+        xyz_positions.append([x, y, 0])
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(xyz_positions)
+    return pcd, xyz_positions
+
+def get_circle_pcd(center, radius, num_points=30):
+    """
+    Create a circle at a given center point.
+
+    :param center: Center of the circle (x, y, z).
+    :param radius: Radius of the circle.
+    :param num_points: Number of points to approximate the circle.
+    :return: Open3D point cloud representing the circle.
+    """
+    points = []
+    for i in range(num_points):
+        angle = 2 * np.pi * i / num_points
+        x = center[0] + radius * np.cos(angle)
+        y = center[1] + radius * np.sin(angle)
+        z = 0 #center[2]
+        points.append([x, y, z])
+    
+    circle_pcd = o3d.geometry.PointCloud()
+    circle_pcd.points = o3d.utility.Vector3dVector(points)
+    return circle_pcd
+
+def visualize_point_cloud(points):
+    """
+    Visualizes the point cloud data using Open3D.
+    """
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points[:, :3])  # Using only x, y, z for point cloud
+    return pcd
+
+def building_list_to_o3d_lineset(building_list):
+    building_line_set = o3d.geometry.LineSet()
+    building_points = [point for building in building_list for edge in building.edges for point in edge.edge_vertices]
+    building_lines_idx = [[i, i + 1] for i in range(0, len(building_points) - 1, 2)]
+    building_line_set.points = o3d.utility.Vector3dVector(building_points)
+    building_line_set.lines = o3d.utility.Vector2iVector(building_lines_idx)
+    building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
+    return building_line_set
+
+# def vertex_list_to_o3d_lineset(vertices):
+#     building_line_set = o3d.geometry.LineSet()
+#     building_points = vertices
+#     building_lines_idx = [[i, i + 1] for i in range(len(building_points) - 1)]
+#     building_lines_idx.append([len(building_points) - 1, 0])  # Closing the loop
+#     building_line_set.points = o3d.utility.Vector3dVector(building_points)
+#     building_line_set.lines = o3d.utility.Vector2iVector(building_lines_idx)
+#     building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
+#     return building_line_set
+
+def vertex_list_to_o3d_lineset(vertices):
+    try:
+        building_line_set = o3d.geometry.LineSet()
+        building_points = vertices
+        building_lines_idx = [[i, (i + 1) % len(building_points)] for i in range(len(building_points))]
+        building_line_set.points = o3d.utility.Vector3dVector(building_points)
+        building_line_set.lines = o3d.utility.Vector2iVector(building_lines_idx)
+        building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
+        return building_line_set
+    except Exception as e:
+        print("Error:", e)
+        print("Vertices:", vertices)
+        raise
+
+def vis_total_accum_points(build_list):
+    build_total_accum_points_frame = []
+    for build in build_list:
+        # Using build.curr_accum_obs_points for now
+        total_accum_obs_points = np.asarray(build.curr_accum_obs_points)
+        total_accum_obs_points[:,2] = total_accum_obs_points[:,2] - np.min(total_accum_obs_points[:,2])
+        build_total_accum_points_frame.extend(total_accum_obs_points) 
+
+    build_line_set = building_list_to_o3d_lineset(build_list)
+    build_accum_points_pcd = o3d.geometry.PointCloud()
+    build_accum_points_pcd.points = o3d.utility.Vector3dVector(np.asarray(build_total_accum_points_frame))
+    o3d.visualization.draw_geometries([build_line_set, build_accum_points_pcd])
+
+
+
+
+
+
 
 '''
 view_frame_semantics2.py
@@ -372,15 +515,19 @@ def get_transformed_point_cloud(pc, transformation_matrices, frame_number):
 
     return transformed_xyz
 
-def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number, labels_dict):
-    if not os.path.exists(pc_filepath) or not os.path.exists(label_filepath):
-        print(f"        --> File not found for frame number {frame_number}!")
+def load_and_visualize(raw_pc_path, label_path, velodyne_poses, frame_num, labels_dict):
+    raw_pc_frame_path = os.path.join(raw_pc_path, f'{frame_num:010d}.bin')
+    pc_frame_label_path = os.path.join(label_path, f'{frame_num:010d}.bin')
+
+    if not os.path.exists(raw_pc_frame_path) or not os.path.exists(pc_frame_label_path):
+        # print(f"        --> File not found for frame number {frame_num}!")
         return None
 
+    # print(f"        --> File exists for frame number {frame_num}!")
     # read pointcloud bin files and label bin files
-    pc = read_bin_file(pc_filepath)
-    pc = get_transformed_point_cloud(pc, velodyne_poses, frame_number)
-    labels_np = read_label_bin_file(label_filepath)
+    pc = read_bin_file(raw_pc_frame_path)
+    pc = get_transformed_point_cloud(pc, velodyne_poses, frame_num)
+    labels_np = read_label_bin_file(pc_frame_label_path)
 
     # boolean mask where True represents the labels to keep
     label_mask = (labels_np == 11) | (labels_np == 0)
@@ -413,56 +560,12 @@ def load_and_visualize(pc_filepath, label_filepath, velodyne_poses, frame_number
     # Convert to lat-lon-alt
     pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
     pc_lla = np.asarray(convertPointsToOxts(pc_reshaped))
-
-    # ave_alt = 226.60675 # Average altitude
-    pc_lla[:, 2] *= 0.00002 #(pc_lla[:, 2] - ave_alt)*0.00001
+    pc_lla[:, 2] *= 0.00002 # TODO: Remove this and only use for visualization
 
     colored_pcd.points = o3d.utility.Vector3dVector(pc_lla[:, :3])  # Only use lat, lon, alt for geometry
     colored_pcd.colors = o3d.utility.Vector3dVector(colored_points) # Set colors
 
     return colored_pcd
-
-# # TODO: Remove and replace with above
-# def load_and_visualize_OG(frame_number, transformation_matrices, labels_dict):
-#     # Adjust file paths based on frame number
-#     pc_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_raw/2013_05_28_drive_0005_sync/velodyne_points/data/{frame_number:010d}.bin'
-#     label_filepath = f'/Users/donceykong/Desktop/kitti360Scripts/data/KITTI360/data_3d_semantics/train/2013_05_28_drive_0005_sync/labels/{frame_number:010d}.bin'
-    
-#     if not os.path.exists(pc_filepath) or not os.path.exists(label_filepath):
-#         print(f"File not found for frame number {frame_number}")
-#         return None
-
-#     # read pointcloud bin files and label bin files
-#     pc = read_bin_file(pc_filepath)
-#     pc = get_transformed_point_cloud(pc, transformation_matrices, frame_number)
-#     labels_np = read_label_bin_file(label_filepath)
-
-#     # boolean mask where True represents the labels to keep
-#     label_mask = (labels_np == 11) | (labels_np == 0)
-
-#     # mask to filter the point cloud and labels
-#     # pc = pc[label_mask]
-#     # labels_np = labels_np[label_mask]
-
-#     # color the point cloud
-#     colored_points = color_point_cloud(pc, labels_np, labels_dict)
-#     colored_pcd = o3d.geometry.PointCloud()
-    
-#     # Reshape pointcloud to fit in convertPointsToOxts function
-#     pc_reshaped = np.array([np.eye(4) for _ in range(pc.shape[0])])
-#     pc_reshaped[:, 0:3, 3] = pc[:, :3]
-
-#     # Convert to lat-lon-alt
-#     pc_reshaped = np.asarray(postprocessPoses(pc_reshaped))
-#     pc_lla = np.asarray(convertPointsToOxts(pc_reshaped))
-
-#     ave_alt = 226.60675 # Average altitude
-#     pc_lla[:, 2] = (pc_lla[:, 2] - ave_alt)*0.00001
-
-#     colored_pcd.points = o3d.utility.Vector3dVector(pc_lla[:, :3])  # Only use lat, lon, alt for geometry
-#     colored_pcd.colors = o3d.utility.Vector3dVector(colored_points) # Set colors
-
-#     return colored_pcd
 
 def load_xyz_positions(file_path):
     with open(file_path, 'r') as file:
@@ -488,6 +591,21 @@ def create_point_clouds_from_xyz(xyz_positions):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+Create new file name for these...?
+"""
 
 # From create_velodyne_poses.py
 
@@ -530,9 +648,6 @@ def write_poses(file_path, transformation_matrices, frame_indices):
             # Write the frame index followed by the flattened matrix
             file.write(f"{idx} {matrix_string}\n")
 
-
-
-
 def get_trans_poses_from_imu_to_velodyne(imu_poses_file, vel_poses_file, save_to_file=False):
     # Define the translation vector from IMU to LiDAR
     translation_vector = np.array([0.81, 0.32, -0.83])
@@ -561,26 +676,34 @@ def get_trans_poses_from_imu_to_velodyne(imu_poses_file, vel_poses_file, save_to
 
     return lidar_poses
 
+def get_velo_poses_list(init_frame, fin_frame, inc_frame, velodyne_poses, label_path):
+    pos_latlong_list = []
+    for frame_num in range(init_frame, fin_frame + 1, inc_frame):
+        pc_frame_label_path = os.path.join(label_path, f'{frame_num:010d}.bin')
+        if os.path.exists(pc_frame_label_path):
+            transformation_matrix = velodyne_poses.get(frame_num)
+            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
+            pos_latlong = trans_matrix_oxts[:3]
+            pos_latlong_list.append(pos_latlong)
+    return pos_latlong_list
 
-def get_accum_colored_pc(init_frame, fin_frame, inc_frame, raw_pc_path, label_path, velodyne_poses, labels_dict, accum_ply_path):
-    # List to hold all point cloud geometries
+def get_accum_pc(init_frame, fin_frame, inc_frame, raw_pc_path, label_path, velodyne_poses, labels_dict, accum_ply_path):
+    # List to hold all point cloud o3d-based pcds
     pcd_geometries = []
 
+    # Initialize tqdm progress bar
+    num_frames = len(range(init_frame, fin_frame + 1, inc_frame))
+    progress_bar = tqdm(total=num_frames, desc="            ")
+
     # Iterate through frame numbers and load each point cloud
-    frame_num = init_frame         # TODO: Retrieve initial frame number of label
-    while frame_num <= fin_frame:
-        raw_pc_frame_path = os.path.join(raw_pc_path, f'{frame_num:010d}.bin')
-        pc_frame_label_path = os.path.join(label_path, f'{frame_num:010d}.bin')
-
-        # print(f"frame_num: {frame_num}")
-        pcd = load_and_visualize(raw_pc_frame_path, pc_frame_label_path, velodyne_poses, frame_num, labels_dict)
+    for frame_num in range(init_frame, fin_frame + 1, inc_frame):
+        pcd = load_and_visualize(raw_pc_path, label_path, velodyne_poses, frame_num, labels_dict)
         if pcd is not None:
-            # last_min = new_min    # TODO: remove?
-            # voxel_size = 0.0000001  # example voxel size
-            # pcd_ds = pcd.voxel_down_sample(voxel_size)
             pcd_geometries.append(pcd)
-        frame_num += inc_frame
-
+        
+        # Update progress bar
+        progress_bar.update(1)
+    
     # Merge all point clouds in pcd_geometries into a single point cloud
     merged_pcd = o3d.geometry.PointCloud()
     for pcd in pcd_geometries:
@@ -589,7 +712,7 @@ def get_accum_colored_pc(init_frame, fin_frame, inc_frame, raw_pc_path, label_pa
     if len(merged_pcd.points):
         # Save the merged point cloud to a PLY file
         o3d.io.write_point_cloud(accum_ply_path, merged_pcd)
-        print(f"        --> Saved merged point cloud to {accum_ply_path}")
+        print(f"\n        --> Saved merged point cloud to {accum_ply_path}")
         
     return merged_pcd
 
