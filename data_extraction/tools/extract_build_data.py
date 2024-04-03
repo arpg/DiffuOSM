@@ -97,16 +97,15 @@ class ExtractBuildingData:
         xyz_point_clouds, self.xyz_positions = get_pointcloud_from_txt(self.oxts_pose_file_path)
 
     def extract_obs_and_accum_obs_points(self):
-        """
-        Step 1
-        """
-        # Initial filter of OSM buildings
+        print("\n     - Step 1) Begining observed point extraction from each frame.")
+
+        # Initial filter of OSM buildings via boundary around IMU path in lat-long
         self.building_list = get_buildings_near_poses(self.osm_file_path, self.xyz_positions, self.near_path_threshold_latlon)
         
         # Main per-frame extraction
         self.extract_accumulated_points()
 
-        # Dont save
+        # Filter hit buildings such that every building has at least one point accumulated
         self.filter_hit_building_list()
 
         # View, if desired (Not reccomended for inc_frame of 1 on an entire sequence)
@@ -122,13 +121,11 @@ class ExtractBuildingData:
 
         for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
             new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
-
             if new_pcd is not None:
                 transformation_matrix = self.velodyne_poses.get(frame_num)
                 trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
                 pos_latlong = trans_matrix_oxts[:3]
                 calc_points_within_build_poly(frame_num, self.building_list, new_pcd, [pos_latlong], self.near_path_threshold_latlon, self.extracted_per_frame_dir)
-
             progress_bar.update(1)
 
     def filter_hit_building_list(self):
@@ -139,14 +136,14 @@ class ExtractBuildingData:
         del self.building_list
 
     def extract_total_and_unobs_points(self):
-        print("\nStep 2) Begining extraction from each frame.")
+        print("\n     - Step 2) Begining unobserved point extraction from each frame.")
 
         num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         progress_bar = tqdm(total=num_frames, desc="            ")
         for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
             self.process_scan(frame_num)
             progress_bar.update(1)
-            
+
     def process_scan(self, frame_num):
         """
         """
