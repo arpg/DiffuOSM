@@ -39,15 +39,34 @@ class PointCloudProcessor:
 
         return filtered_accum_points
 
-    def remove_overlapping_points_efficient(self, larger_points, smaller_points):
-        # Convert lists of points to sets of tuples
-        larger_set = set(map(tuple, larger_points))
-        smaller_set = set(map(tuple, smaller_points))
+    # def remove_overlapping_points_efficient(self, larger_points, smaller_points):
+    #     # Convert lists of points to sets of tuples
+    #     larger_set = set(map(tuple, larger_points))
+    #     smaller_set = set(map(tuple, smaller_points))
 
-        # Find the difference between the two sets
-        unique_to_larger_set = larger_set - smaller_set
+    #     # Find the difference between the two sets
+    #     unique_to_larger_set = larger_set - smaller_set
 
-        # (Optional) Convert back to a list of numpy arrays or keep as tuples based on your needs
-        unique_points_list = np.array(list(unique_to_larger_set))
+    #     # (Optional) Convert back to a list of numpy arrays or keep as tuples based on your needs
+    #     unique_points_list = np.array(list(unique_to_larger_set))
 
-        return unique_points_list
+    #     return unique_points_list
+
+    def remove_overlapping_points_efficient(self, A, B):
+        # Ensure A and B are numpy arrays (if they aren't already)
+        A = np.asarray(A)
+        B = np.asarray(B)
+        
+        # Convert points to a structured array with an additional 'z' dimension for 3D points
+        dtype = [('x', A.dtype), ('y', A.dtype), ('z', A.dtype)]  # Adjusted for 3D
+        A_struct = A.view(dtype).reshape(-1)
+        B_struct = B.view(dtype).reshape(-1)
+        
+        # Use setdiff1d to find unique points in A that are not in B
+        unique_struct = np.setdiff1d(A_struct, B_struct)
+        
+        # Convert back to original shape/format
+        # The shape is set to -1, 3 to ensure it's reshaped as 3D points
+        unique_points = unique_struct.view(A.dtype).reshape(-1, 3)
+        
+        return unique_points
