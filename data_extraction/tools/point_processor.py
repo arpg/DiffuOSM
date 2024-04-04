@@ -38,3 +38,16 @@ class PointCloudProcessor:
         filtered_accum_points = total_accum_points_array[distances > 0]
 
         return filtered_accum_points
+
+    def remove_overlapping_points_efficient(self, larger_points, smaller_points):
+        # Convert lists of points to sets of tuples
+        larger_set = set(map(tuple, larger_points))
+        smaller_set = set(map(tuple, smaller_points))
+
+        # Find the difference between the two sets
+        unique_to_larger_set = larger_set - smaller_set
+
+        # (Optional) Convert back to a list of numpy arrays or keep as tuples based on your needs
+        unique_points_list = np.array(list(unique_to_larger_set))
+
+        return unique_points_list
