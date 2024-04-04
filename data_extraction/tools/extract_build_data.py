@@ -28,7 +28,7 @@ class ExtractBuildingData:
         self.seq = seq
         self.near_path_threshold_latlon = 0.001     # Distance to do initial filter of buildings near path in lat-long
         self.min_num_points = 1                     # Example criterion for each building
-        self.use_multithreaded_extraction = True   # Use multithreading for per_frame / per_building point extraction
+        self.use_multithreaded_extraction = False   # Use multithreading for per_frame / per_building point extraction
 
         self.PCProc = PointCloudProcessor()
 
@@ -178,8 +178,8 @@ class ExtractBuildingData:
                 observed_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
                 curr_accum_points_frame.extend(hit_building.get_curr_accum_obs_points(frame_num))
 
-        if len(observed_points_frame) > 0:
-                save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
+        # if len(observed_points_frame) > 0:
+        save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
 
     '''
     Step 3: Extract unobserved points via filtering of overlapping points.
@@ -196,7 +196,6 @@ class ExtractBuildingData:
     def process_scan(self, frame_num):
         """
         """
-
         if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
                 thread_executor.submit(self.extract_and_save_per_scan_unobs_points, frame_num)
@@ -214,20 +213,20 @@ class ExtractBuildingData:
         curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
         total_accum_points_frame = read_building_pc_file(total_accum_points_file)
 
-        if len(observed_points_frame) > 0:
-            print("             - KDTree search beginning.")
-            kdtree_begin = datetime.now()
-            unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
-            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
-            kdtree_duration = datetime.now() - kdtree_begin
-            print(f"            - KDTree duration: {kdtree_duration}")
+        # if len(observed_points_frame) > 0:
+        print("\n             - KDTree search beginning.")
+        kdtree_begin = datetime.now()
+        unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
+        unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
+        kdtree_duration = datetime.now() - kdtree_begin
+        print(f"            - KDTree duration: {kdtree_duration}")
 
-            print("\n             - Eff Remove search beginning.")
-            eff_remove_begin = datetime.now()
-            unobserved_points_frame = self.PCProc.remove_overlapping_points_efficient(total_accum_points_frame, observed_points_frame)
-            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points_efficient(total_accum_points_frame, curr_accum_points_frame)
-            eff_remove_duration = datetime.now() - eff_remove_begin
-            print(f"            - Eff Remove duration: {eff_remove_duration}")
+        print("             - Eff Remove search beginning.")
+        eff_remove_begin = datetime.now()
+        unobserved_points_frame = self.PCProc.remove_overlapping_points_efficient(total_accum_points_frame, observed_points_frame)
+        unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points_efficient(total_accum_points_frame, curr_accum_points_frame)
+        eff_remove_duration = datetime.now() - eff_remove_begin
+        print(f"            - Eff Remove duration: {eff_remove_duration}")
 
-            # save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame)
-            save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
+        # save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame)
+        save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
