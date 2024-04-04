@@ -37,7 +37,8 @@ class ExtractBuildingData:
 
         self.initiate_extraction()
         self.extract_obs_and_accum_obs_points()     # Step 1
-        self.extract_total_and_unobs_points()       # Step 2
+        self.save_all_obs_points()                  # Step 2
+        self.extract_and_save_unobs_points()        # Step 3
         self.conclude_extraction()
 
     def initial_setup(self, frame_inc):
@@ -120,12 +121,16 @@ class ExtractBuildingData:
         progress_bar = tqdm(total=num_frames, desc="            ")
 
         for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
-            new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
-            if new_pcd is not None:
-                transformation_matrix = self.velodyne_poses.get(frame_num)
-                trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-                pos_latlong = trans_matrix_oxts[:3]
-                calc_points_within_build_poly(frame_num, self.building_list, new_pcd, [pos_latlong], self.near_path_threshold_latlon)
+            total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
+            # Check if the file does not exist
+            if not os.path.exists(total_accum_points_file):
+                # The total_accum file for this frame does not exist, extraction will continue
+                new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
+                if new_pcd is not None:
+                    transformation_matrix = self.velodyne_poses.get(frame_num)
+                    trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
+                    pos_latlong = trans_matrix_oxts[:3]
+                    calc_points_within_build_poly(frame_num, self.building_list, new_pcd, [pos_latlong], self.near_path_threshold_latlon)
             progress_bar.update(1)
 
     def filter_hit_building_list(self):
@@ -135,8 +140,52 @@ class ExtractBuildingData:
         # Garbage collect
         del self.building_list
 
-    def extract_total_and_unobs_points(self):
-        print("\n     - Step 2) Extracting unobserved points from each frame.")
+    '''
+    STEP 2: So we dont need to repeat step 1.
+    - This allows for us to optimize for faster method for unobserved extraction w/o needing to keep repeating step 1.
+    '''
+    def save_all_obs_points(self):
+        print("\n     - Step 2) Saving observed points from each frame.")
+
+        num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
+        progress_bar = tqdm(total=num_frames, desc="            ")
+        for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
+            total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
+            # Check if the file does not exist
+            if not os.path.exists(total_accum_points_file):
+                # The total_accum file for this frame does not exist, saving will continue
+                self.save_per_scan_obs_points(frame_num)
+                progress_bar.update(1)
+        
+        # No longer needed
+        del self.hit_building_list
+
+    def save_per_scan_obs_points(self, frame_num):
+        """
+        """
+        total_accum_points_frame = []
+        building_edges_frame = []
+        observed_points_frame = []
+        curr_accum_points_frame = []
+
+        # Cycle through each building that is in the filtered 'hit' list.
+        for hit_building in self.hit_building_list:
+            # if frame_num in hit_building.per_scan_points_dict:
+            if frame_num in hit_building.per_scan_points_dict.keys():
+                # Update current frame's points
+                total_accum_points_frame.extend(hit_building.get_total_accum_obs_points())
+                building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
+                observed_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
+                curr_accum_points_frame.extend(hit_building.get_curr_accum_obs_points(frame_num))
+
+        if len(observed_points_frame) > 0:
+                save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
+
+    '''
+    Step 3: Extract unobserved points via filtering of overlapping points.
+    '''
+    def extract_and_save_unobs_points(self):
+        print("\n     - Step 3) Extracting unobserved points from each frame.")
 
         num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         progress_bar = tqdm(total=num_frames, desc="            ")
@@ -150,40 +199,20 @@ class ExtractBuildingData:
 
         if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
-                thread_executor.submit(self.extract_and_save_per_scan_points, frame_num)
+                thread_executor.submit(self.extract_and_save_per_scan_unobs_points, frame_num)
         else:
-                self.extract_and_save_per_scan_points(frame_num)
+                self.extract_and_save_per_scan_unobs_points(frame_num)
 
-    def extract_and_save_per_scan_points(self, frame_num):
+    def extract_and_save_per_scan_unobs_points(self, frame_num):
         """
         """
+        obs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin', )
+        obs_curr_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin', )
+        total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
 
-        total_accum_points_frame = []
-        building_edges_frame = []
-        observed_points_frame = []
-        curr_accum_points_frame = []
-
-        print(f"\n        - Frame: {frame_num}")
-        print("             - Search through hit build list beginning.")
-        hit_build_list_begin = datetime.now()
-        # Cycle through each building that is in the filtered 'hit' list.
-        for hit_building in self.hit_building_list:
-            # if frame_num in hit_building.per_scan_points_dict:
-            if frame_num in hit_building.per_scan_points_dict.keys():
-                # Update current frame's points
-                total_accum_points_frame.extend(hit_building.get_total_accum_obs_points())
-                building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
-                observed_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
-                curr_accum_points_frame.extend(hit_building.get_curr_accum_obs_points(frame_num))
-        # print(f"""
-        #     frame_num: {frame_num}: 
-        #         - len(curr_accum_points_frame): {len(curr_accum_points_frame)}
-        #         - len(total_accum_points_frame): {len(total_accum_points_frame)}
-        #         - len(observed_points_frame): {len(observed_points_frame)}
-        #         - len(building_edges_frame): {len(building_edges_frame)}
-        #     """)
-        hit_build_list_duration = datetime.now() - hit_build_list_begin
-        print(f"            - Hit build list search duration: {hit_build_list_duration}")
+        observed_points_frame = read_building_pc_file(obs_points_file)
+        curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
+        total_accum_points_frame = read_building_pc_file(total_accum_points_file)
 
         if len(observed_points_frame) > 0:
             print("             - KDTree search beginning.")
@@ -193,10 +222,12 @@ class ExtractBuildingData:
             kdtree_duration = datetime.now() - kdtree_begin
             print(f"            - KDTree duration: {kdtree_duration}")
 
-            print("             - Saving scans.")
-            save_scans_begin = datetime.now()
+            print("\n             - Eff Remove search beginning.")
+            eff_remove_begin = datetime.now()
+            unobserved_points_frame = self.PCProc.remove_overlapping_points_efficient(total_accum_points_frame, observed_points_frame)
+            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points_efficient(total_accum_points_frame, curr_accum_points_frame)
+            eff_remove_duration = datetime.now() - eff_remove_begin
+            print(f"            - Eff Remove duration: {eff_remove_duration}")
+
             # save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame)
-            save_per_scan_extracted_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame,
-                                              unobserved_points_frame, unobserved_curr_accum_points_frame)
-            save_scans_duration = datetime.now() - save_scans_begin
-            print(f"            - Saving scans duration: {save_scans_duration}")
+            save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
