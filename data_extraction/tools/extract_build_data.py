@@ -109,7 +109,7 @@ class ExtractBuildingData:
         self.filter_hit_building_list()
 
         # View, if desired (Not reccomended for inc_frame of 1 on an entire sequence)
-        vis_total_accum_points(self.hit_building_list)
+        # vis_total_accum_points(self.hit_building_list)
     
     def extract_accumulated_points(self):
         """
@@ -172,13 +172,13 @@ class ExtractBuildingData:
                 building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
                 observed_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
                 curr_accum_points_frame.extend(hit_building.get_curr_accum_obs_points(frame_num))
-        print(f"""
-            frame_num: {frame_num}: 
-                - len(curr_accum_points_frame): {len(curr_accum_points_frame)}
-                - len(total_accum_points_frame): {len(total_accum_points_frame)}
-                - len(observed_points_frame): {len(observed_points_frame)}
-                - len(building_edges_frame): {len(building_edges_frame)}
-            """)
+        # print(f"""
+        #     frame_num: {frame_num}: 
+        #         - len(curr_accum_points_frame): {len(curr_accum_points_frame)}
+        #         - len(total_accum_points_frame): {len(total_accum_points_frame)}
+        #         - len(observed_points_frame): {len(observed_points_frame)}
+        #         - len(building_edges_frame): {len(building_edges_frame)}
+        #     """)
         
         if len(observed_points_frame) > 0:
             unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
