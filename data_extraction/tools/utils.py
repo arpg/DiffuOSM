@@ -258,51 +258,9 @@ def convert_and_save_oxts_poses(imu_poses_file, output_path):
             oxts_line = ' '.join(['%.6f' % x for x in oxts_])
             f.write(f'{oxts_line}\n')
 
-# def save_per_scan_unobs_data(extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame):
-#     """
-#     """
-
-#     # Save total accumulated points for all buildings that have been observed by current scan
-#     frame_totalbuildaccum_scan_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin')
-#     with open(frame_totalbuildaccum_scan_file, 'wb') as bin_file:
-#         np.array(total_accum_points_frame).tofile(bin_file)
-
-#     # Save current scan difference from total
-#     if len(unobserved_points_frame)>0:
-#         frame_unobs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
-#         with open(frame_unobs_points_file, 'wb') as bin_file:
-#             np.array(unobserved_points_frame).tofile(bin_file)
-
-#     # Save current accumulated difference from total
-#     if len(unobserved_curr_accum_points_frame)>0:
-#         frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
-#         with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
-#             np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
-
-# def save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame):
-#     """
-#     """
-    
-#     # Save all edges from buildings that were observed in current scan
-#     frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges.bin')
-#     with open(frame_build_edges_file, 'wb') as bin_file:
-#         np.array(building_edges_frame).tofile(bin_file)
-        
-#     # Save observed_points_frame
-#     frame_obs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin')
-#     with open(frame_obs_points_file, 'wb') as bin_file:
-#         np.array(observed_points_frame).tofile(bin_file)
-
-#     # Save the current accumulation of points of buildings that were observed in this scan
-#     frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin')
-#     with open(frame_obs_curr_accum_points_file, 'wb') as bin_file:
-#         np.array(curr_accum_points_frame).tofile(bin_file)
-
-def save_per_scan_extracted_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame,
-                                unobserved_points_frame, unobserved_curr_accum_points_frame):
+def save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame):
     """
     """
-    
     # Save all edges from buildings that were observed in current scan
     frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges.bin')
     with open(frame_build_edges_file, 'wb') as bin_file:
@@ -318,16 +276,19 @@ def save_per_scan_extracted_data(extracted_per_frame_dir, frame_num, building_ed
     with open(frame_obs_points_file, 'wb') as bin_file:
         np.array(observed_points_frame).tofile(bin_file)
 
+    # Save the current accumulation of points of buildings that were observed in this scan
+    frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin')
+    with open(frame_obs_curr_accum_points_file, 'wb') as bin_file:
+        np.array(curr_accum_points_frame).tofile(bin_file)
+
+def save_per_scan_unobs_data(extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame):
+    """
+    """
     # Save current scan difference from total
     if len(unobserved_points_frame)>0:
         frame_unobs_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
         with open(frame_unobs_points_file, 'wb') as bin_file:
             np.array(unobserved_points_frame).tofile(bin_file)
-
-    # Save the current accumulation of points of buildings that were observed in this scan
-    frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin')
-    with open(frame_obs_curr_accum_points_file, 'wb') as bin_file:
-        np.array(curr_accum_points_frame).tofile(bin_file)
 
     # Save current accumulated difference from total
     if len(unobserved_curr_accum_points_frame)>0:
@@ -335,25 +296,27 @@ def save_per_scan_extracted_data(extracted_per_frame_dir, frame_num, building_ed
         with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
             np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
 
-def save_building_edges_and_accum(extracted_building_data_dir, hit_building_list):
-    '''
-    Save building edges and accumulated scan as np .bin file for each building that is hit by points during seq.
-    '''
-    for iter, hit_building in enumerate(hit_building_list):
-        iter += 1
+
+# TODO: Probably delete
+# def save_building_edges_and_accum(extracted_building_data_dir, hit_building_list):
+#     '''
+#     Save building edges and accumulated scan as np .bin file for each building that is hit by points during seq.
+#     '''
+#     for iter, hit_building in enumerate(hit_building_list):
+#         iter += 1
         
-        hit_building_edges = []
-        for edge in hit_building.edges:
-            hit_building_edges.append(edge.edge_vertices)
-        hit_building_edges = np.array(hit_building_edges)
+#         hit_building_edges = []
+#         for edge in hit_building.edges:
+#             hit_building_edges.append(edge.edge_vertices)
+#         hit_building_edges = np.array(hit_building_edges)
 
-        building_edges_file = os.path.join(extracted_building_data_dir, 'per_building', 'edges_accum', f'build_{iter}_edges.bin')
-        with open(building_edges_file, 'wb') as bin_file:
-            np.array(hit_building_edges).tofile(bin_file)
+#         building_edges_file = os.path.join(extracted_building_data_dir, 'per_building', 'edges_accum', f'build_{iter}_edges.bin')
+#         with open(building_edges_file, 'wb') as bin_file:
+#             np.array(hit_building_edges).tofile(bin_file)
 
-        building_accum_scan_file = os.path.join(extracted_building_data_dir, 'per_building', 'edges_accum', f'build_{iter}_accum.bin')
-        with open(building_accum_scan_file, 'wb') as bin_file:
-            np.array(hit_building.accum_points).tofile(bin_file)
+#         building_accum_scan_file = os.path.join(extracted_building_data_dir, 'per_building', 'edges_accum', f'build_{iter}_accum.bin')
+#         with open(building_accum_scan_file, 'wb') as bin_file:
+#             np.array(hit_building.accum_points).tofile(bin_file)
 
 
 
