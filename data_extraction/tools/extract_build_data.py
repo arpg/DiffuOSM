@@ -162,7 +162,10 @@ class ExtractBuildingData:
         building_edges_frame = []
         observed_points_frame = []
         curr_accum_points_frame = []
-        
+
+        print(f"\n        - Frame: {frame_num}")
+        print("             - Search through hit build list beginning.")
+        hit_build_list_begin = datetime.now()
         # Cycle through each building that is in the filtered 'hit' list.
         for hit_building in self.hit_building_list:
             # if frame_num in hit_building.per_scan_points_dict:
@@ -179,11 +182,21 @@ class ExtractBuildingData:
         #         - len(observed_points_frame): {len(observed_points_frame)}
         #         - len(building_edges_frame): {len(building_edges_frame)}
         #     """)
-        
+        hit_build_list_duration = datetime.now() - hit_build_list_begin
+        print(f"            - Hit build list search duration: {hit_build_list_duration}")
+
         if len(observed_points_frame) > 0:
+            print("             - KDTree search beginning.")
+            kdtree_begin = datetime.now()
             unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
             unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
+            kdtree_duration = datetime.now() - kdtree_begin
+            print(f"            - KDTree duration: {kdtree_duration}")
 
+            print("             - Saving scans.")
+            save_scans_begin = datetime.now()
             # save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame)
             save_per_scan_extracted_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame,
                                               unobserved_points_frame, unobserved_curr_accum_points_frame)
+            save_scans_duration = datetime.now() - save_scans_begin
+            print(f"            - Saving scans duration: {save_scans_duration}")
