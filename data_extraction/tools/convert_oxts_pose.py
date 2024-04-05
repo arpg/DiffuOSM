@@ -173,10 +173,6 @@ def convertPointsToOxts(pose):
   afterwards, pose{i} contains the transformation which takes a
   3D point in the i'th frame and projects it into the oxts
   coordinates with the origin at a lake in Karlsruhe. '''
-
-#   single_value = not isinstance(pose, list)
-#   if single_value:
-#     pose = [pose]
   
   # origin in OXTS coordinate
   origin_oxts = [48.9843445, 8.4295857] # lake in Karlsruhe

@@ -97,6 +97,9 @@ class ExtractBuildingData:
             convert_and_save_oxts_poses(self.imu_poses_file, self.oxts_pose_file_path)
         xyz_point_clouds, self.xyz_positions = get_pointcloud_from_txt(self.oxts_pose_file_path)
 
+    '''
+    STEP 1: Extract observed building points from each frame and filter the buildings.
+    '''
     def extract_obs_and_accum_obs_points(self):
         print("\n     - Step 1) Extracting observed points from each frame.")
 
@@ -157,7 +160,7 @@ class ExtractBuildingData:
                 self.save_per_scan_obs_points(frame_num)
                 progress_bar.update(1)
         
-        # No longer needed
+        # Garbage collection
         del self.hit_building_list
 
     def save_per_scan_obs_points(self, frame_num):
@@ -236,5 +239,4 @@ class ExtractBuildingData:
         eff_remove_duration = datetime.now() - eff_remove_begin
         print(f"            - Eff Remove duration: {eff_remove_duration}")
 
-        # save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, total_accum_points_frame, unobserved_points_frame, unobserved_curr_accum_points_frame)
         save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
