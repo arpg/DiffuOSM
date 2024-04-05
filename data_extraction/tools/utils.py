@@ -123,7 +123,7 @@ def building_offset_to_o3d_lineset(building_list):
     building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
     return building_line_set
 
-def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_latlong_list, near_path_threshold):
+def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_latlong, near_path_threshold):
     # Get 2D representation of accumulated_color_pc
     points_2D = np.asarray(np.copy(point_cloud_3D.points))
     points_2D[:, 2] = 0
@@ -134,7 +134,6 @@ def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_
     points_3d = np.asarray(point_cloud_3D.points)
     
     for building, building_polygon in zip(building_list, building_polygons):
-        for pos_latlong in pos_latlong_list:
             distance = np.linalg.norm(pos_latlong[:2] - building.center[:2])
             if distance <= near_path_threshold:
                 # Filter points within a threshold distance of the building center using KDTree
