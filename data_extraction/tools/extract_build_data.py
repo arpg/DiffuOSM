@@ -175,7 +175,7 @@ class ExtractBuildingData:
         # Cycle through each building that is in the filtered 'hit' list.
         for hit_building in self.hit_building_list:
             distance = np.linalg.norm(pos_latlong[:2] - hit_building.center[:2])
-            if distance <= self.near_path_threshold:
+            if distance <= self.near_path_threshold_latlon:
                 # if frame_num in hit_building.per_scan_points_dict:
                 if frame_num in hit_building.per_scan_points_dict.keys():
                     # Update current frame's points
