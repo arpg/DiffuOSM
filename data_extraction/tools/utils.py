@@ -154,20 +154,23 @@ def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_
 
 def get_building_hit_list(building_list, min_num_points): 
     hit_building_list = []
+
     for building in building_list:
-        building.num_points_total_accum = len(building.get_total_accum_obs_points())
+        building.set_total_accum_obs_points()
+        building.num_points_total_accum = len(building.total_accum_obs_points)
         if building.num_points_total_accum >= min_num_points:
             hit_building_list.append(building)
 
     return hit_building_list
 
-def update_per_frame_data(hit_building, building_edges_frame, observed_points_frame, curr_accum_points_frame):
-    """
-    """
+# Remove?
+# def update_per_frame_data(hit_building, building_edges_frame, observed_points_frame, curr_accum_points_frame):
+#     """
+#     """
     
-    building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
-    observed_points_frame.extend(hit_building.per_scan_obs_points)
-    curr_accum_points_frame.extend(hit_building.curr_accum_obs_points)
+#     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
+#     observed_points_frame.extend(hit_building.per_scan_obs_points)
+#     curr_accum_points_frame.extend(hit_building.curr_accum_obs_points)
 
 
 
@@ -408,9 +411,15 @@ def vertex_list_to_o3d_lineset(vertices):
 def vis_total_accum_points(build_list):
     build_total_accum_points_frame = []
     for build in build_list:
-        total_accum_obs_points = np.asarray(build.get_total_accum_obs_points()).reshape(-1, 3)
-        total_accum_obs_points[:,2] = total_accum_obs_points[:,2] - np.min(total_accum_obs_points[:,2])
-        build_total_accum_points_frame.extend(total_accum_obs_points) 
+        if len(build.get_total_accum_obs_points()) == 0:
+            continue
+        else:
+            total_accum_obs_points = build.get_total_accum_obs_points() #np.asarray(build.get_total_accum_obs_points()).reshape(-1, 3))
+            total_accum_obs_points[:,2] = total_accum_obs_points[:,2] - np.min(total_accum_obs_points[:,2])
+            build_total_accum_points_frame.extend(total_accum_obs_points) 
+
+    # build_total_accum_points_frame = np.asarray(build_total_accum_points_frame)
+    # build_total_accum_points_frame[:,2] = build_total_accum_points_frame[:,2] - np.mean(build_total_accum_points_frame[:,2])
 
     build_line_set = building_list_to_o3d_lineset(build_list)
     build_accum_points_pcd = o3d.geometry.PointCloud()
