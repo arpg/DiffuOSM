@@ -13,7 +13,7 @@ Refactor and clean.
 import os
 import glob
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -28,7 +28,7 @@ class ExtractBuildingData:
         self.seq = seq
         self.near_path_threshold_latlon = 0.001     # Distance to do initial filter of buildings near path in lat-long
         self.min_num_points = 1                     # Example criterion for each building
-        self.use_multithreaded_extraction = False   # Use multithreading for per_frame / per_building point extraction
+        self.use_multithreaded_extraction = True   # Use multithreading for per_frame / per_building point extraction
 
         self.PCProc = PointCloudProcessor()
 
@@ -128,14 +128,22 @@ class ExtractBuildingData:
             total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
             # Check if the file does not exist
             if not os.path.exists(total_accum_points_file):
-                # The total_accum file for this frame does not exist, extraction will continue
-                new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
-                if new_pcd is not None:
-                    transformation_matrix = self.velodyne_poses.get(frame_num)
-                    trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-                    pos_latlong = trans_matrix_oxts[:3]
-                    calc_points_within_build_poly(frame_num, self.building_list, new_pcd, pos_latlong, self.near_path_threshold_latlon)
+                if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
+                    with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
+                        thread_executor.submit(self.extract_per_scan_total_accum_obs_points, frame_num)
+                else:
+                        self.extract_per_scan_total_accum_obs_points(frame_num)        
+            # vis_total_accum_points(self.building_list)
             progress_bar.update(1)
+
+    def extract_per_scan_total_accum_obs_points(self, frame_num):
+        # The total_accum file for this frame does not exist, extraction will continue
+        new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
+        if new_pcd is not None:
+            transformation_matrix = self.velodyne_poses.get(frame_num)
+            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
+            pos_latlong = trans_matrix_oxts[:3]
+            calc_points_within_build_poly(frame_num, self.building_list, new_pcd, pos_latlong, self.near_path_threshold_latlon)
 
     def filter_hit_building_list(self):
         # Filter hit build list
@@ -154,13 +162,18 @@ class ExtractBuildingData:
         num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         progress_bar = tqdm(total=num_frames, desc="            ")
         for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
+            pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
             total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
             # Check if the file does not exist
-            if not os.path.exists(total_accum_points_file):
+            if not os.path.exists(total_accum_points_file) and os.path.exists(pc_frame_label_path):
                 # The total_accum file for this frame does not exist, saving will continue
-                self.save_per_scan_obs_points(frame_num)
+                if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
+                    with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
+                        thread_executor.submit(self.save_per_scan_obs_points, frame_num)
+                else:
+                        self.save_per_scan_obs_points(frame_num)
                 progress_bar.update(1)
-        
+
         # Garbage collection
         del self.hit_building_list
 
@@ -172,31 +185,43 @@ class ExtractBuildingData:
         observed_points_frame = []
         curr_accum_points_frame = []
 
-        pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-        if os.path.exists(pc_frame_label_path):
-            transformation_matrix = self.velodyne_poses.get(frame_num)
-            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-            pos_latlong = trans_matrix_oxts[:3]
+        transformation_matrix = self.velodyne_poses.get(frame_num)
+        trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
+        pos_latlong = trans_matrix_oxts[:3]
 
-            # Cycle through each building that is in the filtered 'hit' list.
-            for hit_building in self.hit_building_list:
-                distance = np.linalg.norm(pos_latlong[:2] - hit_building.center[:2])
-                if distance <= self.near_path_threshold_latlon:
-                    # if frame_num in hit_building.per_scan_points_dict:
-                    if frame_num in hit_building.per_scan_points_dict.keys():
-                        # Update current frame's points
-                        total_accum_points_frame.extend(hit_building.get_total_accum_obs_points())
-                        building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
-                        observed_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
-                        curr_accum_points_frame.extend(hit_building.get_curr_accum_obs_points(frame_num))
+        # Cycle through each building that is in the filtered 'hit' list.
+        for hit_building in self.hit_building_list:
+            distance = np.linalg.norm(pos_latlong[:2] - hit_building.center[:2])
+            if distance <= self.near_path_threshold_latlon:
+                # if frame_num in hit_building.per_scan_points_dict:
+                if frame_num in hit_building.per_scan_points_dict.keys():
+                    # Update current frame's points
+                    curr_obs_points = hit_building.get_curr_obs_points(frame_num)
+                    observed_points_frame.extend(curr_obs_points)
 
-                        # Pop the current frame's points from the building's per_scan_points_dict
-                        hit_building.per_scan_points_dict.pop(frame_num)
+                    # Update buildings current accumulated points
+                    if len(hit_building.curr_accumulated_points) == 0:
+                        hit_building.curr_accumulated_points = curr_obs_points
+                    else:
+                        curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
+                        hit_building.curr_accumulated_points = curr_accumulated_points
+
+                    # Update the total accumulated points of the scan
+                    curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
                     
-                        if len(observed_points_frame) > 0:
-                            save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
+                    # Update the total accumulated points of the frame using total accumulated points of the building
+                    total_accum_points_frame.extend(hit_building.total_accum_obs_points)
 
-    '''
+                    # Update the building edges for the frame using the building edges
+                    building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
+
+                    # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
+                    hit_building.per_scan_points_dict.pop(frame_num)
+
+                    if len(observed_points_frame) > 0:
+                        save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
+
+    ''' 
     Step 3: Extract unobserved points via filtering of overlapping points.
     '''
     def extract_and_save_unobs_points(self):
@@ -211,11 +236,13 @@ class ExtractBuildingData:
     def process_scan(self, frame_num):
         """
         """
-        if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
-            with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
-                thread_executor.submit(self.extract_and_save_per_scan_unobs_points, frame_num)
-        else:
-                self.extract_and_save_per_scan_unobs_points(frame_num)
+        pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+        if os.path.exists(pc_frame_label_path):
+            if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
+                with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
+                    thread_executor.submit(self.extract_and_save_per_scan_unobs_points, frame_num)
+            else:
+                    self.extract_and_save_per_scan_unobs_points(frame_num)
 
     def extract_and_save_per_scan_unobs_points(self, frame_num):
         """
