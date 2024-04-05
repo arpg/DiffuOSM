@@ -173,7 +173,7 @@ class ExtractBuildingData:
         curr_accum_points_frame = []
 
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-        if not os.path.exists(pc_frame_label_path):
+        if os.path.exists(pc_frame_label_path):
             transformation_matrix = self.velodyne_poses.get(frame_num)
             trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
             pos_latlong = trans_matrix_oxts[:3]
