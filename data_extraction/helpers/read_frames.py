@@ -129,7 +129,10 @@ def change_frame(vis, key_code):
         ds_accum_points_pcd.paint_uniform_color([1, 0, 0])  # RED color for accum frame points
 
         center = obs_curr_accum_points_pcd.get_center()
+
+        # Create a coordinate frame at the center of the point cloud
         axis_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.0001, origin=center)
+
         # extrinsic = np.eye(4)
         # extrinsic[:3, :3] = np.eye(3)
         # extrinsic[:3, 3] = center
@@ -142,7 +145,7 @@ def change_frame(vis, key_code):
         vis.add_geometry(axis_frame)
         
         # # Control where the visualizer looks at
-        # vis.get_view_control().set_lookat(center)
+        vis.get_view_control().set_lookat(center)
         # vis.get_view_control().set_front([-0.5, -0.3, 1])
         # zoom = 0.00005
         # vis.get_view_control().set_zoom(zoom)  
@@ -168,7 +171,7 @@ def find_min_max_file_names(label_path):
 
 frame_min, frame_max = find_min_max_file_names(per_frame_build)
 # print(f"frame_min: {frame_min}, frame_max: {frame_max}")
-frame_inc = 100
+frame_inc = 1000
 frame = frame_min
 ds_accum_points = []
 ds_accum_points_pcd = o3d.geometry.PointCloud()
