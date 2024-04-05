@@ -178,23 +178,23 @@ class ExtractBuildingData:
             trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
             pos_latlong = trans_matrix_oxts[:3]
 
-        # Cycle through each building that is in the filtered 'hit' list.
-        for hit_building in self.hit_building_list:
-            distance = np.linalg.norm(pos_latlong[:2] - hit_building.center[:2])
-            if distance <= self.near_path_threshold_latlon:
-                # if frame_num in hit_building.per_scan_points_dict:
-                if frame_num in hit_building.per_scan_points_dict.keys():
-                    # Update current frame's points
-                    total_accum_points_frame.extend(hit_building.get_total_accum_obs_points())
-                    building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
-                    observed_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
-                    curr_accum_points_frame.extend(hit_building.get_curr_accum_obs_points(frame_num))
+            # Cycle through each building that is in the filtered 'hit' list.
+            for hit_building in self.hit_building_list:
+                distance = np.linalg.norm(pos_latlong[:2] - hit_building.center[:2])
+                if distance <= self.near_path_threshold_latlon:
+                    # if frame_num in hit_building.per_scan_points_dict:
+                    if frame_num in hit_building.per_scan_points_dict.keys():
+                        # Update current frame's points
+                        total_accum_points_frame.extend(hit_building.get_total_accum_obs_points())
+                        building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
+                        observed_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
+                        curr_accum_points_frame.extend(hit_building.get_curr_accum_obs_points(frame_num))
 
-                    # Pop the current frame's points from the building's per_scan_points_dict
-                    hit_building.per_scan_points_dict.pop(frame_num)
-                
-                    if len(observed_points_frame) > 0:
-                        save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
+                        # Pop the current frame's points from the building's per_scan_points_dict
+                        hit_building.per_scan_points_dict.pop(frame_num)
+                    
+                        if len(observed_points_frame) > 0:
+                            save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
 
     '''
     Step 3: Extract unobserved points via filtering of overlapping points.
