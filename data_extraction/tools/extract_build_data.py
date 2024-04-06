@@ -126,10 +126,10 @@ class ExtractBuildingData:
         progress_bar = tqdm(total=num_frames, desc="            ")
 
         for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
-            total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
+            #total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
             # Check if the file does not exist
-            if not os.path.exists(total_accum_points_file):
-                self.extract_per_scan_total_accum_obs_points(frame_num)        
+            #if not os.path.exists(total_accum_points_file):
+            self.extract_per_scan_total_accum_obs_points(frame_num)        
             progress_bar.update(1)
 
     def extract_per_scan_total_accum_obs_points(self, frame_num):
@@ -179,7 +179,7 @@ class ExtractBuildingData:
         total_accum_points_frame = []
         building_edges_frame = []
         observed_points_frame = []
-        curr_accum_points_frame = []
+        #curr_accum_points_frame = []
 
         transformation_matrix = self.velodyne_poses.get(frame_num)
         trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
@@ -193,7 +193,7 @@ class ExtractBuildingData:
                 if frame_num in hit_building.per_scan_points_dict.keys():
                     # Update current frame's points
                     curr_obs_points = hit_building.get_curr_obs_points(frame_num)
-                    observed_points_frame.extend(curr_obs_points)
+                    #observed_points_frame.extend(curr_obs_points)
                     
                     # Update buildings current accumulated points
                     if self.use_multithreaded_saving:
@@ -217,8 +217,9 @@ class ExtractBuildingData:
                     if not self.use_multithreaded_saving:
                         hit_building.per_scan_points_dict.pop(frame_num)
 
-                    if len(observed_points_frame) > 0:
-                        save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
+                    if len(observed_points_frame) > 0: 
+                        save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, total_accum_points_frame)
+                        #save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
 
     ''' 
     Step 3: Extract unobserved points via filtering of overlapping points.
@@ -252,16 +253,17 @@ class ExtractBuildingData:
         Extracts and saves the unobserved points per scan.
 
         """
-        obs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin', )
+        #obs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin', )
         obs_curr_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin', )
         total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
 
         if os.path.exists(obs_points_file):
-            observed_points_frame = read_building_pc_file(obs_points_file)
+            #observed_points_frame = read_building_pc_file(obs_points_file)
             curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
             total_accum_points_frame = read_building_pc_file(total_accum_points_file)
 
-            unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
+            #unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
             unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
-
-            save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
+            
+            save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_curr_accum_points_frame)
+            #save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
