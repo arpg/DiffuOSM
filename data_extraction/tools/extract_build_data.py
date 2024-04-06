@@ -178,8 +178,8 @@ class ExtractBuildingData:
         """
         total_accum_points_frame = []
         building_edges_frame = []
-        observed_points_frame = []
-        #curr_accum_points_frame = []
+        #observed_points_frame = []
+        curr_accum_points_frame = []
 
         transformation_matrix = self.velodyne_poses.get(frame_num)
         trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
@@ -217,7 +217,7 @@ class ExtractBuildingData:
                     if not self.use_multithreaded_saving:
                         hit_building.per_scan_points_dict.pop(frame_num)
 
-                    if len(observed_points_frame) > 0: 
+                    if len(curr_obs_points) > 0: 
                         save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, total_accum_points_frame)
                         #save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
 
@@ -257,7 +257,7 @@ class ExtractBuildingData:
         obs_curr_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin', )
         total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
 
-        if os.path.exists(obs_points_file):
+        if os.path.exists(obs_curr_accum_points_file):
             #observed_points_frame = read_building_pc_file(obs_points_file)
             curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
             total_accum_points_frame = read_building_pc_file(total_accum_points_file)
@@ -265,5 +265,8 @@ class ExtractBuildingData:
             #unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
             unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
             
+            # Removed total_accum_points file to save disk space
+            os.remove(total_accum_points_frame)
+
             save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_curr_accum_points_frame)
             #save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
