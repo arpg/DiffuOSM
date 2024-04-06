@@ -256,12 +256,12 @@ class ExtractBuildingData:
         obs_curr_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin', )
         total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
 
-        observed_points_frame = read_building_pc_file(obs_points_file)
-        curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
-        total_accum_points_frame = read_building_pc_file(total_accum_points_file)
+        if os.path.exists(obs_points_file):
+            observed_points_frame = read_building_pc_file(obs_points_file)
+            curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
+            total_accum_points_frame = read_building_pc_file(total_accum_points_file)
 
-        # if len(observed_points_frame) > 0:
-        unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
-        unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
+            unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
+            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
 
-        save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
+            save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
