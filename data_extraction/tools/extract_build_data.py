@@ -130,7 +130,6 @@ class ExtractBuildingData:
             # Check if the file does not exist
             if not os.path.exists(total_accum_points_file):
                 self.extract_per_scan_total_accum_obs_points(frame_num)        
-            # vis_total_accum_points(self.building_list)
             progress_bar.update(1)
 
     def extract_per_scan_total_accum_obs_points(self, frame_num):
