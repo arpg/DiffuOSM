@@ -266,7 +266,7 @@ class ExtractBuildingData:
             unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
             
             # Removed total_accum_points file to save disk space
-            os.remove(total_accum_points_frame)
+            os.remove(total_accum_points_file)
 
             save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_curr_accum_points_frame)
             #save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
