@@ -178,7 +178,7 @@ class ExtractBuildingData:
         """
         total_accum_points_frame = []
         building_edges_frame = []
-        #observed_points_frame = []
+        observed_points_frame = []
         curr_accum_points_frame = []
 
         transformation_matrix = self.velodyne_poses.get(frame_num)
@@ -193,7 +193,7 @@ class ExtractBuildingData:
                 if frame_num in hit_building.per_scan_points_dict.keys():
                     # Update current frame's points
                     curr_obs_points = hit_building.get_curr_obs_points(frame_num)
-                    #observed_points_frame.extend(curr_obs_points)
+                    observed_points_frame.extend(curr_obs_points)
                     
                     # Update buildings current accumulated points
                     if self.use_multithreaded_saving:
@@ -217,9 +217,9 @@ class ExtractBuildingData:
                     if not self.use_multithreaded_saving:
                         hit_building.per_scan_points_dict.pop(frame_num)
 
-                    if len(curr_obs_points) > 0: 
-                        save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, total_accum_points_frame)
-                        #save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
+        if len(observed_points_frame) > 0: 
+            save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, total_accum_points_frame)
+            #save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
 
     ''' 
     Step 3: Extract unobserved points via filtering of overlapping points.
