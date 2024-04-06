@@ -259,18 +259,7 @@ class ExtractBuildingData:
         total_accum_points_frame = read_building_pc_file(total_accum_points_file)
 
         # if len(observed_points_frame) > 0:
-        print("\n             - KDTree search beginning.")
-        kdtree_begin = datetime.now()
         unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
         unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
-        kdtree_duration = datetime.now() - kdtree_begin
-        print(f"            - KDTree duration: {kdtree_duration}")
-
-        print("             - Eff Remove search beginning.")
-        eff_remove_begin = datetime.now()
-        unobserved_points_frame = self.PCProc.remove_overlapping_points_efficient(total_accum_points_frame, observed_points_frame)
-        unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points_efficient(total_accum_points_frame, curr_accum_points_frame)
-        eff_remove_duration = datetime.now() - eff_remove_begin
-        print(f"            - Eff Remove duration: {eff_remove_duration}")
 
         save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
