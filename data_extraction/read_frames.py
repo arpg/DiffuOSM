@@ -10,6 +10,10 @@ import glob
 import numpy as np
 import open3d as o3d
 
+# Internal
+from tools.labels import labels
+from tools.utils import *
+from tools.convert_oxts_pose import *
 
 seq = 0
 
@@ -21,6 +25,11 @@ else:
 
 sequence = '2013_05_28_drive_%04d_sync' % seq
 per_frame_build = os.path.join(kitti360Path, 'data_3d_extracted', sequence, 'buildings', 'per_frame')
+
+imu_poses_file = os.path.join(kitti360Path, 'data_poses', sequence, 'poses.txt')
+velodyne_poses_file = os.path.join(kitti360Path, 'data_poses', sequence, 'velodyne_poses.txt')
+#velodyne_poses = get_trans_poses_from_imu_to_velodyne(imu_poses_file, velodyne_poses_file, save_to_file=True)
+velodyne_poses = read_vel_poses(velodyne_poses_file)
 
 def read_bin_file(file_path):
     point_cloud = np.fromfile(file_path)
@@ -44,7 +53,7 @@ def get_pcds(frame):
     files_exist = False
     if not os.path.exists(unobs_curr_accum_points_file) or not os.path.exists(obs_points_file):
         print(f"File not found: {unobs_curr_accum_points_file}")
-        return files_exist, None, None, None
+        return files_exist, None, None, None, None
     else:
         files_exist = True
 
@@ -60,6 +69,11 @@ def get_pcds(frame):
 
     build_edges_points, build_edges_lines = read_edges_file(build_edges_file)
 
+    transformation_matrix = velodyne_poses.get(frame)
+    trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
+    pos_latlong = trans_matrix_oxts[:3]
+    pos_latlong[2] = 0
+
     obs_curr_accum_points_pcd = o3d.geometry.PointCloud()
     unobs_curr_accum_points_pcd = o3d.geometry.PointCloud()
     build_edges_pcd = o3d.geometry.LineSet()
@@ -73,38 +87,38 @@ def get_pcds(frame):
     unobs_curr_accum_points_pcd.paint_uniform_color([0, 1, 0])  # Green color for unobs frame points
     build_edges_pcd.paint_uniform_color([0, 0, 1])              # Blue color for OSM build edges
 
-    return files_exist, obs_curr_accum_points_pcd, unobs_curr_accum_points_pcd, build_edges_pcd
+    return files_exist, obs_curr_accum_points_pcd, unobs_curr_accum_points_pcd, build_edges_pcd, pos_latlong
 
 def plot_pcds(accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd):
     o3d.visualization.draw_geometries([accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd])
 
-def get_accum_pcds(): 
-    global frame_min
-    global frame_max
-    global frame_inc
-    global frame
+# def get_accum_pcds(): 
+#     global frame_min
+#     global frame_max
+#     global frame_inc
+#     global frame
 
-    frame = frame_min
-    files_exist, accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd = get_pcds(frame)
+#     frame = frame_min
+#     files_exist, accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd = get_pcds(frame)
 
-    # print(f"files_exist: {files_exist} for frame {frame}")
-    all_accum_frame_pcds = accum_frame_pcd
-    all_edge_pcds = (obs_edges_pcd + unobs_edges_pcd)
+#     # print(f"files_exist: {files_exist} for frame {frame}")
+#     all_accum_frame_pcds = accum_frame_pcd
+#     all_edge_pcds = (obs_edges_pcd + unobs_edges_pcd)
 
-    frame += frame_inc
-    while frame < frame_max:
-        files_exist, accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd = get_pcds(frame)
-        if (files_exist):
-            all_accum_frame_pcds += accum_frame_pcd
-            all_edge_pcds += (obs_edges_pcd + unobs_edges_pcd)
-        frame += frame_inc
+#     frame += frame_inc
+#     while frame < frame_max:
+#         files_exist, accum_frame_pcd, obs_points_pcd, unobs_points_pcd, obs_edges_pcd, unobs_edges_pcd = get_pcds(frame)
+#         if (files_exist):
+#             all_accum_frame_pcds += accum_frame_pcd
+#             all_edge_pcds += (obs_edges_pcd + unobs_edges_pcd)
+#         frame += frame_inc
 
-    all_accum_frame_pcds.paint_uniform_color([0, 0, 0])  # Black color for accum frame points
-    all_edge_pcds.paint_uniform_color([0, 0, 1])  # Black color for accum frame points
+#     all_accum_frame_pcds.paint_uniform_color([0, 0, 0])  # Black color for accum frame points
+#     all_edge_pcds.paint_uniform_color([0, 0, 1])  # Black color for accum frame points
 
-    frame = frame_min
+#     frame = frame_min
 
-    return all_accum_frame_pcds, all_edge_pcds
+#     return all_accum_frame_pcds, all_edge_pcds
 
 def change_frame(vis, key_code):
     global frame_min
@@ -119,19 +133,19 @@ def change_frame(vis, key_code):
     elif key_code == ord('P') and frame > frame_min:
         frame -= frame_inc
         
-    files_exist, obs_curr_accum_points_pcd, unobs_curr_accum_points_pcd, build_edges_pcd = get_pcds(frame)
+    files_exist, obs_curr_accum_points_pcd, unobs_curr_accum_points_pcd, build_edges_pcd, pos_latlong = get_pcds(frame)
 
     if (files_exist):
         voxel_size = 0.00001  # Define the voxel size, adjust this value based on your needs
         ds_accum = obs_curr_accum_points_pcd.voxel_down_sample(voxel_size)
-        ds_accum_points.extend(ds_accum.points)
+        ds_accum_points.extend(obs_curr_accum_points_pcd.points)#ds_accum.points)
         ds_accum_points_pcd.points = o3d.utility.Vector3dVector(ds_accum_points)
-        ds_accum_points_pcd.paint_uniform_color([1, 0, 0])  # RED color for accum frame points
+        ds_accum_points_pcd.paint_uniform_color([0.2, 0.2, 0.4])  # RED color for accum frame points
 
         center = obs_curr_accum_points_pcd.get_center()
-
+        
         # Create a coordinate frame at the center of the point cloud
-        axis_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.0001, origin=center)
+        axis_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.0001, origin=pos_latlong)
 
         # extrinsic = np.eye(4)
         # extrinsic[:3, :3] = np.eye(3)
@@ -151,7 +165,7 @@ def change_frame(vis, key_code):
         # zoom = 0.00005
         # vis.get_view_control().set_zoom(zoom)  
         vis.get_view_control().set_lookat(center)
-        
+
         # Update the visualization window
         # vis.update_geometry()
         vis.poll_events()
