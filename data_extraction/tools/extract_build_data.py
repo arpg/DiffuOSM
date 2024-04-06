@@ -28,7 +28,8 @@ class ExtractBuildingData:
         self.seq = seq
         self.near_path_threshold_latlon = 0.001     # Distance to do initial filter of buildings near path in lat-long
         self.min_num_points = 1                     # Example criterion for each building
-        self.use_multithreaded_extraction = True   # Use multithreading for per_frame / per_building point extraction
+        self.use_multithreaded_extraction = False   # Use multithreading for per_frame / per_building point extraction
+        self.use_multithreaded_saving = False        # Use multithreading curr and total accum points saving
 
         self.PCProc = PointCloudProcessor()
 
@@ -167,12 +168,8 @@ class ExtractBuildingData:
             # Check if the file does not exist
             if not os.path.exists(total_accum_points_file) and os.path.exists(pc_frame_label_path):
                 # The total_accum file for this frame does not exist, saving will continue
-                if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
-                    with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
-                        thread_executor.submit(self.save_per_scan_obs_points, frame_num)
-                else:
-                        self.save_per_scan_obs_points(frame_num)
-                progress_bar.update(1)
+                self.save_per_scan_obs_points(frame_num)
+            progress_bar.update(1)
 
         # Garbage collection
         del self.hit_building_list
@@ -199,16 +196,19 @@ class ExtractBuildingData:
                     curr_obs_points = hit_building.get_curr_obs_points(frame_num)
                     observed_points_frame.extend(curr_obs_points)
 
-                    # Update buildings current accumulated points
-                    if len(hit_building.curr_accumulated_points) == 0:
-                        hit_building.curr_accumulated_points = curr_obs_points
-                    else:
-                        curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
-                        hit_building.curr_accumulated_points = curr_accumulated_points
+                    # # Update buildings current accumulated points
+                    # if len(hit_building.curr_accumulated_points) == 0:
+                    #     hit_building.curr_accumulated_points = curr_obs_points
+                    # else:
+                    #     curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
+                    #     hit_building.curr_accumulated_points = curr_accumulated_points
 
-                    # Update the total accumulated points of the scan
-                    curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
+                    # # Update the total accumulated points of the scan
+                    # curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
                     
+                    # # Update buildings current accumulated points
+                    curr_accum_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
+
                     # Update the total accumulated points of the frame using total accumulated points of the building
                     total_accum_points_frame.extend(hit_building.total_accum_obs_points)
 
@@ -235,6 +235,8 @@ class ExtractBuildingData:
 
     def process_scan(self, frame_num):
         """
+        Process a scan frame and extract and save unobserved points.
+
         """
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
         if os.path.exists(pc_frame_label_path):
@@ -242,10 +244,12 @@ class ExtractBuildingData:
                 with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
                     thread_executor.submit(self.extract_and_save_per_scan_unobs_points, frame_num)
             else:
-                    self.extract_and_save_per_scan_unobs_points(frame_num)
+                self.extract_and_save_per_scan_unobs_points(frame_num)
 
     def extract_and_save_per_scan_unobs_points(self, frame_num):
         """
+        Extracts and saves the unobserved points per scan.
+
         """
         obs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin', )
         obs_curr_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin', )
