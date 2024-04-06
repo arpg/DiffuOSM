@@ -29,7 +29,7 @@ class ExtractBuildingData:
         self.near_path_threshold_latlon = 0.001     # Distance to do initial filter of buildings near path in lat-long
         self.min_num_points = 1                     # Example criterion for each building
         self.use_multithreaded_extraction = False   # Use multithreading for per_frame / per_building point extraction
-        self.use_multithreaded_saving = True        # Use multithreading curr and total accum points saving
+        self.use_multithreaded_saving = False        # Use multithreading curr and total accum points saving
 
         self.PCProc = PointCloudProcessor()
 
@@ -39,7 +39,7 @@ class ExtractBuildingData:
         self.initiate_extraction()
         self.extract_obs_and_accum_obs_points()     # Step 1
         self.save_all_obs_points()                  # Step 2
-        # self.extract_and_save_unobs_points()        # Step 3
+        self.extract_and_save_unobs_points()        # Step 3
         self.conclude_extraction()
 
     def initial_setup(self, frame_inc):
@@ -215,7 +215,8 @@ class ExtractBuildingData:
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
 
                     # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
-                    hit_building.per_scan_points_dict.pop(frame_num)
+                    if not self.use_multithreaded_saving:
+                        hit_building.per_scan_points_dict.pop(frame_num)
 
                     if len(observed_points_frame) > 0:
                         save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
@@ -238,6 +239,8 @@ class ExtractBuildingData:
 
         """
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+        frame_unobs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
+        # if not os.path.exists(frame_unobs_points_file) and os.path.exists(pc_frame_label_path):
         if os.path.exists(pc_frame_label_path):
             if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
                 with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
