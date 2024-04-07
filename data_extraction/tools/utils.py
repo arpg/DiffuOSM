@@ -267,12 +267,12 @@ def save_per_scan_data(extracted_per_frame_dir, frame_num, building_edges_frame,
     building_edges_frame = np.asarray(building_edges_frame)
     curr_accum_points_frame = np.asarray(curr_accum_points_frame)
     unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame)
-    
+
     # Save all edges from buildings that were observed in current scan
     # frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges.bin')
     # with open(frame_build_edges_file, 'wb') as bin_file:
         # np.array(building_edges_frame).tofile(bin_file)
-    frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges.npz')
+    frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges')
     np.save(frame_build_edges_file, building_edges_frame)  # Saving
 
     # # Save total accumulated points for all buildings that have been observed by current scan
@@ -289,7 +289,7 @@ def save_per_scan_data(extracted_per_frame_dir, frame_num, building_edges_frame,
     # frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin')
     # with open(frame_obs_curr_accum_points_file, 'wb') as bin_file:
     #     np.array(curr_accum_points_frame).tofile(bin_file)
-    frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.npz')
+    frame_obs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points')
     np.save(frame_obs_curr_accum_points_file, curr_accum_points_frame)
 
     # Save current accumulated difference from total
@@ -297,7 +297,7 @@ def save_per_scan_data(extracted_per_frame_dir, frame_num, building_edges_frame,
     # frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
     # with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
     #     np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
-    frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
+    frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points')
     np.save(frame_unobs_curr_accum_points_file, unobserved_curr_accum_points_frame)
 
 # TODO: Remove?
