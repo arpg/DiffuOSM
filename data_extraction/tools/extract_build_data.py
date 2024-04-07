@@ -39,7 +39,7 @@ class ExtractBuildingData:
         self.initiate_extraction()
         self.extract_obs_and_accum_obs_points()     # Step 1
         self.save_all_obs_points()                  # Step 2
-        self.extract_and_save_unobs_points()        # Step 3
+        # self.extract_and_save_unobs_points()        # Step 3
         self.conclude_extraction()
 
     def initial_setup(self, frame_inc):
@@ -218,55 +218,56 @@ class ExtractBuildingData:
                         hit_building.per_scan_points_dict.pop(frame_num)
 
         if len(observed_points_frame) > 0: 
-            save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, total_accum_points_frame)
+            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
+            save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
             #save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
 
-    ''' 
-    Step 3: Extract unobserved points via filtering of overlapping points.
-    '''
-    def extract_and_save_unobs_points(self):
-        print("\n     - Step 3) Extracting unobserved points from each frame.")
+    # ''' 
+    # Step 3: Extract unobserved points via filtering of overlapping points.
+    # '''
+    # def extract_and_save_unobs_points(self):
+    #     print("\n     - Step 3) Extracting unobserved points from each frame.")
 
-        num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
-        progress_bar = tqdm(total=num_frames, desc="            ")
-        for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
-            self.process_scan(frame_num)
-            progress_bar.update(1)
+    #     num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
+    #     progress_bar = tqdm(total=num_frames, desc="            ")
+    #     for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
+    #         self.process_scan(frame_num)
+    #         progress_bar.update(1)
 
-    def process_scan(self, frame_num):
-        """
-        Process a scan frame and extract and save unobserved points.
+    # def process_scan(self, frame_num):
+    #     """
+    #     Process a scan frame and extract and save unobserved points.
 
-        """
-        pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-        frame_unobs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
-        # if not os.path.exists(frame_unobs_points_file) and os.path.exists(pc_frame_label_path):
-        if os.path.exists(pc_frame_label_path):
-            if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
-                with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
-                    thread_executor.submit(self.extract_and_save_per_scan_unobs_points, frame_num)
-            else:
-                self.extract_and_save_per_scan_unobs_points(frame_num)
+    #     """
+    #     pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+    #     frame_unobs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
+    #     # if not os.path.exists(frame_unobs_points_file) and os.path.exists(pc_frame_label_path):
+    #     if os.path.exists(pc_frame_label_path):
+    #         if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
+    #             with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
+    #                 thread_executor.submit(self.extract_and_save_per_scan_unobs_points, frame_num)
+    #         else:
+    #             self.extract_and_save_per_scan_unobs_points(frame_num)
 
-    def extract_and_save_per_scan_unobs_points(self, frame_num):
-        """
-        Extracts and saves the unobserved points per scan.
+    # def extract_and_save_per_scan_unobs_points(self, frame_num):
+    #     """
+    #     Extracts and saves the unobserved points per scan.
 
-        """
-        #obs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin', )
-        obs_curr_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin', )
-        total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
+    #     """
+    #     #obs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin', )
+    #     obs_curr_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin', )
+    #     total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
 
-        if os.path.exists(obs_curr_accum_points_file):
-            #observed_points_frame = read_building_pc_file(obs_points_file)
-            curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
-            total_accum_points_frame = read_building_pc_file(total_accum_points_file)
+    #     if os.path.exists(obs_curr_accum_points_file):
+    #         #observed_points_frame = read_building_pc_file(obs_points_file)
+    #         curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
+    #         total_accum_points_frame = read_building_pc_file(total_accum_points_file)
 
-            #unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
-            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
+    #         #unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
+    #         unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
             
-            # Removed total_accum_points file to save disk space
-            os.remove(total_accum_points_file)
+    #         # Removed total_accum_points file to save disk space
+    #         os.remove(total_accum_points_file)
 
-            save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_curr_accum_points_frame)
-            #save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
+    #         save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_curr_accum_points_frame)
+    #         #save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
