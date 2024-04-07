@@ -221,8 +221,9 @@ class ExtractBuildingData:
                     if not self.use_multithreaded_saving:
                         hit_building.per_scan_points_dict.pop(frame_num)
 
-        unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
-        if len(unobserved_curr_accum_points_frame) > 0: # Only save if there are points which have not been observed (ie: a ground truth greater to reach for)
+        total_points_frame_bigger = len(total_accum_points_frame) > len(curr_accum_points_frame)
+        if len(total_points_frame_bigger) > 0: # Only save if there are points which have not been observed (ie: a ground truth greater to reach for)
+            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
             save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
 
 # ********************************************************************************************************************************
