@@ -27,9 +27,9 @@ class ExtractBuildingData:
     def __init__(self, seq=5, frame_inc=1):
         self.seq = seq
         self.near_path_threshold_latlon = 0.001     # Distance to do initial filter of buildings near path in lat-long
-        self.min_num_points = 1                     # Example criterion for each building
+        self.min_num_points = 1000                  # Example criterion for each building
         self.use_multithreaded_extraction = False   # Use multithreading for per_frame / per_building point extraction
-        self.use_multithreaded_saving = False        # Use multithreading curr and total accum points saving
+        self.use_multithreaded_saving = False       # Use multithreading curr and total accum points saving
 
         self.PCProc = PointCloudProcessor()
 
@@ -185,41 +185,54 @@ class ExtractBuildingData:
         trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
         pos_latlong = trans_matrix_oxts[:3]
 
-        # Cycle through each building that is in the filtered 'hit' list.
-        for hit_building in self.hit_building_list:
-            distance = np.linalg.norm(pos_latlong[:2] - hit_building.center[:2])
-            if distance <= self.near_path_threshold_latlon:
-                # if frame_num in hit_building.per_scan_points_dict:
-                if frame_num in hit_building.per_scan_points_dict.keys():
-                    # Update current frame's points
-                    curr_obs_points = hit_building.get_curr_obs_points(frame_num)
-                    observed_points_frame.extend(curr_obs_points)
-                    
-                    # Update buildings current accumulated points
-                    if self.use_multithreaded_saving:
-                        curr_accum_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
-                    else:
-                        if len(hit_building.curr_accumulated_points) == 0:
-                            hit_building.curr_accumulated_points = curr_obs_points
-                        else:
-                            curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
-                            hit_building.curr_accumulated_points = curr_accumulated_points
-                        # Update the total accumulated points of the scan
-                        curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
-                        
-                    # Update the total accumulated points of the frame using total accumulated points of the building
-                    total_accum_points_frame.extend(hit_building.total_accum_obs_points)
+        # New Filter build near pose
+        building_centers_2d = np.array([building.center[:2] for building in self.hit_building_list])
+        distances = np.linalg.norm(pos_latlong[0, :2] - building_centers_2d, axis=1)
+        close_building_indices = np.where(distances <= self.near_path_threshold_latlon)[0]
+        close_buildings = [self.hit_building_list[idx] for idx in close_building_indices]
 
-                    # Update the building edges for the frame using the building edges
-                    building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
+        # Filter buildings that contain frame_num in their per_scan_points_dict
+        buildings_with_frame = [building for building in close_buildings if frame_num in building.per_scan_points_dict]
 
-                    # TODO: we could test unobs accum here and make sure at least every building has unobs points in this frame (or skip)
-                    #hitbuilding_unobserved_curr_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building.curr_accumulated_points)
-                    #unobserved_curr_accum_points_frame.extend(hitbuilding_unobserved_curr_accum_points)
+        # # Cycle through each building that is in the filtered 'hit' list.
+        # for hit_building in self.hit_building_list:
+        #     distance = np.linalg.norm(pos_latlong[:2] - hit_building.center[:2])
+        #     if distance <= self.near_path_threshold_latlon:
+                # if frame_num in hit_building.per_scan_points_dict.keys():
+        
+        # for hit_building in close_buildings:
+        #     if frame_num in hit_building.per_scan_points_dict.keys():
 
-                    # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
-                    if not self.use_multithreaded_saving:
-                        hit_building.per_scan_points_dict.pop(frame_num)
+        for hit_building in buildings_with_frame:
+            # Update current frame's points
+            curr_obs_points = hit_building.get_curr_obs_points(frame_num)
+            observed_points_frame.extend(curr_obs_points)
+            
+            # Update buildings current accumulated points
+            if self.use_multithreaded_saving:
+                curr_accum_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
+            else:
+                if len(hit_building.curr_accumulated_points) == 0:
+                    hit_building.curr_accumulated_points = curr_obs_points
+                else:
+                    curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
+                    hit_building.curr_accumulated_points = curr_accumulated_points
+                # Update the total accumulated points of the scan
+                curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
+                
+            # Update the total accumulated points of the frame using total accumulated points of the building
+            total_accum_points_frame.extend(hit_building.total_accum_obs_points)
+
+            # Update the building edges for the frame using the building edges
+            building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
+
+            # TODO: we could test unobs accum here and make sure at least every building has unobs points in this frame (or skip)
+            #hitbuilding_unobserved_curr_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building.curr_accumulated_points)
+            #unobserved_curr_accum_points_frame.extend(hitbuilding_unobserved_curr_accum_points)
+
+            # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
+            if not self.use_multithreaded_saving:
+                hit_building.per_scan_points_dict.pop(frame_num)
 
         total_points_frame_bigger = len(total_accum_points_frame) > len(curr_accum_points_frame)
         if total_points_frame_bigger: # Only save if there are points which have not been observed (ie: a ground truth greater to reach for)
