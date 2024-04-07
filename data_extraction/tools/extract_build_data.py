@@ -168,17 +168,20 @@ class ExtractBuildingData:
                         self.save_per_scan_obs_points(frame_num)
                 progress_bar.update(1)
 
+
         # Garbage collection
         del self.hit_building_list
 
     def save_per_scan_obs_points(self, frame_num):
         """
         """
+        fullTime_begin = datetime.now()
         total_accum_points_frame = []
         building_edges_frame = []
         observed_points_frame = []
         curr_accum_points_frame = []
-
+        
+        time2getTF_begin = datetime.now()
         transformation_matrix = self.velodyne_poses.get(frame_num)
         trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
         pos_latlong = trans_matrix_oxts[:3]
@@ -191,6 +194,7 @@ class ExtractBuildingData:
 
         # Filter buildings that contain frame_num in their per_scan_points_dict
         buildings_with_frame = [building for building in close_buildings if frame_num in building.per_scan_points_dict]
+        time2getTF_dur = datetime.now() - time2getTF_begin
 
         # # Cycle through each building that is in the filtered 'hit' list.
         # for hit_building in self.hit_building_list:
@@ -229,13 +233,22 @@ class ExtractBuildingData:
             #unobserved_curr_accum_points_frame.extend(hitbuilding_unobserved_curr_accum_points)
 
             # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
-            if not self.use_multithreaded_saving:
-                hit_building.per_scan_points_dict.pop(frame_num)
+            # if not self.use_multithreaded_saving:
+            #     hit_building.per_scan_points_dict.pop(frame_num)
 
         total_points_frame_bigger = len(total_accum_points_frame) > len(curr_accum_points_frame)
         if total_points_frame_bigger: # Only save if there are points which have not been observed (ie: a ground truth greater to reach for)
+            time2KDTree_begin = datetime.now()
             unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
+            time2KDTree_dur = datetime.now() - time2KDTree_begin
+
+            time2save_begin = datetime.now()
             save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
+            time2save_dur = datetime.now() - time2save_begin
+
+            fullTime_dur = datetime.now() - fullTime_begin
+            print(f"Full time: {fullTime_dur}")
+            print(f"    - Time to TF: {time2getTF_dur} | Time to save: {time2save_dur} | Time to KDTree: {time2KDTree_dur}")
 
 # ********************************************************************************************************************************
 
