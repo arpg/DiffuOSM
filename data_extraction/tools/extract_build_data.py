@@ -213,14 +213,19 @@ class ExtractBuildingData:
                     # Update the building edges for the frame using the building edges
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
 
+                    # TODO: we could test unobs accum here and make sure at least every building has unobs points in this frame (or skip)
+                    #hitbuilding_unobserved_curr_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building.curr_accumulated_points)
+                    #unobserved_curr_accum_points_frame.extend(hitbuilding_unobserved_curr_accum_points)
+
                     # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
                     if not self.use_multithreaded_saving:
                         hit_building.per_scan_points_dict.pop(frame_num)
 
-        if len(observed_points_frame) > 0: 
-            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
+        unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
+        if len(unobserved_curr_accum_points_frame) > 0: # Only save if there are points which have not been observed (ie: a ground truth greater to reach for)
             save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
-            #save_per_scan_obs_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame)
+
+# ********************************************************************************************************************************
 
     # ''' 
     # Step 3: Extract unobserved points via filtering of overlapping points.
