@@ -247,7 +247,7 @@ class ExtractBuildingData:
             time2save_dur = datetime.now() - time2save_begin
 
             fullTime_dur = datetime.now() - fullTime_begin
-            print(f"Full time: {fullTime_dur}")
+            print(f"\nFrame {frame_num} | Full time: {fullTime_dur}")
             print(f"    - Time to TF: {time2getTF_dur} | Time to save: {time2save_dur} | Time to KDTree: {time2KDTree_dur}")
 
 # ********************************************************************************************************************************
