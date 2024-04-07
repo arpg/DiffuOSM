@@ -285,10 +285,10 @@ def save_per_scan_data(extracted_per_frame_dir, frame_num, building_edges_frame,
         np.array(curr_accum_points_frame).tofile(bin_file)
 
     # Save current accumulated difference from total
-    if len(unobserved_curr_accum_points_frame)>0:
-        frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
-        with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
-            np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
+    # if len(unobserved_curr_accum_points_frame)>0:
+    frame_unobs_curr_accum_points_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_unobs_curr_accum_points.bin')
+    with open(frame_unobs_curr_accum_points_file, 'wb') as bin_file:
+        np.array(unobserved_curr_accum_points_frame).tofile(bin_file)
 
 # TODO: Remove?
 # def save_per_scan_unobs_data(extracted_per_frame_dir, frame_num, unobserved_curr_accum_points_frame):
