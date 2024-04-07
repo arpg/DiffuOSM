@@ -187,7 +187,7 @@ class ExtractBuildingData:
 
         # New Filter build near pose
         building_centers_2d = np.array([building.center[:2] for building in self.hit_building_list])
-        distances = np.linalg.norm(pos_latlong[0, :2] - building_centers_2d, axis=1)
+        distances = np.linalg.norm(pos_latlong[:2] - building_centers_2d, axis=1)
         close_building_indices = np.where(distances <= self.near_path_threshold_latlon)[0]
         close_buildings = [self.hit_building_list[idx] for idx in close_building_indices]
 
