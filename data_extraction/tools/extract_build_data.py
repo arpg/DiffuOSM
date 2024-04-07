@@ -39,7 +39,7 @@ class ExtractBuildingData:
         self.initiate_extraction()
         self.extract_obs_and_accum_obs_points()     # Step 1
         self.save_all_obs_points()                  # Step 2
-        # self.extract_and_save_unobs_points()        # Step 3
+        # self.extract_and_save_unobs_points()      # Step 3
         self.conclude_extraction()
 
     def initial_setup(self, frame_inc):
@@ -159,10 +159,8 @@ class ExtractBuildingData:
         progress_bar = tqdm(total=num_frames, desc="            ")
         for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
             pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-            total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
-            # Check if the file does not exist
-            if not os.path.exists(total_accum_points_file) and os.path.exists(pc_frame_label_path):
-                # The total_accum file for this frame does not exist, saving will continue
+            # Check if the labes file for this scan exist
+            if os.path.exists(pc_frame_label_path):
                 if self.use_multithreaded_saving: # Use executor to submit jobs to be processed in parallel
                     with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
                         thread_executor.submit(self.save_per_scan_obs_points, frame_num)
