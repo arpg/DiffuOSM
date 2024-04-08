@@ -176,13 +176,11 @@ class ExtractBuildingData:
         #     self.extract_per_scan_total_accum_obs_points(frame_num)        
         #     progress_bar.update(1)
 
-    def process_chunk(self, chunk, building_list):
+    def process_chunk(self, chunk):
+        # Directly use self.shared_building_list here
         for frame_num in chunk:
-            # Adapted logic to process a single frame at a time.
-            # Since we're in a chunked context, we use the provided building_list directly.
-            # If your processing function needs more arguments, adjust accordingly.
-            self.extract_per_scan_total_accum_obs_points(frame_num, building_list)
-
+            self.extract_per_scan_total_accum_obs_points(frame_num, self.shared_building_list
+                                                     
     # def create_building_list_copies(self):
     #     # Assuming self.building_list is already populated
     #     return [self.building_list.copy() for _ in range(os.cpu_count())]
