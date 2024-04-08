@@ -117,7 +117,7 @@ class ExtractBuildingData:
 
         # View, if desired (Not reccomended for inc_frame of 1 on an entire sequence)
         # vis_total_accum_points(self.hit_building_list)
-    
+
     def extract_accumulated_points(self):
         """
         This method extracts all of the points that hit buildings over the full sequence. It is done per scan.
@@ -127,14 +127,8 @@ class ExtractBuildingData:
             shared_building_list = manager.list(self.building_list)  # Create a managed list
             frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
             
-            with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
-                # Wrap the task submission and progress update in a function
-                # to correctly scope variables for the tqdm update.
-                def process_frame(frame_num):
-                    self.extract_per_scan_total_accum_obs_points(frame_num, shared_building_list)
-                    progress_bar.update(1)
-                
-                pool.map(process_frame, frame_nums)
+            with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:                
+                pool.map(self.extract_per_scan_total_accum_obs_points_wrapper, (frame_nums, shared_building_list))
 
                     # ********************************
         # # Assuming self.init_frame, self.fin_frame, and self.inc_frame are defined
@@ -169,6 +163,9 @@ class ExtractBuildingData:
     def create_building_list_copies(self):
         # Assuming self.building_list is already populated
         return [self.building_list.copy() for _ in range(os.cpu_count())]
+    
+    def extract_per_scan_total_accum_obs_points_wrapper(self, frame_num, shared_building_list):
+        self.save_per_scan_obs_points(frame_num, shared_building_list)
 
     def extract_per_scan_total_accum_obs_points(self, frame_num, building_list):
         # The total_accum file for this frame does not exist, extraction will continue
