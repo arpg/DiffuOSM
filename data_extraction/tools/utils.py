@@ -77,6 +77,7 @@ def get_all_osm_buildings(osm_file_path):
     building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
     building_list = []
     building_lines = []
+    building_id = 0
     for _, building in building_features.iterrows():
         if building.geometry.geom_type == 'Polygon':
             exterior_coords = building.geometry.exterior.coords
@@ -86,14 +87,16 @@ def get_all_osm_buildings(osm_file_path):
                 end_point = [exterior_coords[i + 1][1], exterior_coords[i + 1][0], 0]
                 per_building_lines.append([start_point, end_point])
                 building_lines.append([start_point, end_point])
-            new_building = osm_building.OSMBuilding(per_building_lines)
+            new_building = osm_building.OSMBuilding(per_building_lines, building_id)
             building_list.append(new_building)
+            building_id += 1
     return building_list
 
 def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
     building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
     building_list = []
     building_lines = []
+    building_id = 0
     for _, building in building_features.iterrows():
         if building.geometry.geom_type == 'Polygon':
             exterior_coords = building.geometry.exterior.coords
@@ -105,8 +108,9 @@ def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
                     end_point = [exterior_coords[i + 1][1], exterior_coords[i + 1][0], 0]
                     per_building_lines.append([start_point, end_point])
                     building_lines.append([start_point, end_point])
-                new_building = osm_building.OSMBuilding(per_building_lines)
+                new_building = osm_building.OSMBuilding(per_building_lines, building_id)
                 building_list.append(new_building)
+                building_id += 1
 
     building_line_set = o3d.geometry.LineSet()
     building_points = [point for line in building_lines for point in line]

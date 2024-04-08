@@ -11,10 +11,11 @@ class OSMBuildingEdge:
 
 # TODO: Represent OSM buildings in lat-long and XYZ
 class OSMBuilding:
-    def __init__(self, building_lines, offset_distance = 0.000008):
+    def __init__(self, building_lines, building_id, offset_distance = 0.000008):
         self.edges = [OSMBuildingEdge(line) for line in building_lines]
         self.center = np.mean(np.array(building_lines), axis=(0, 1))
         self.scan_num = 0
+        self.id = building_id
 
         # For each scan, store the current observed points of the building
         self.per_scan_points_dict = dict()
@@ -33,6 +34,9 @@ class OSMBuilding:
         # Create offset edges for the building
         self.offset_edges = self.get_offset_edges()
 
+    def get_building_id(self):
+        return self.id
+    
     def set_total_accum_obs_points(self):
         """
         Set the accumulated observed points of building up to and including the last scan which observed it.
