@@ -22,6 +22,7 @@ class OSMBuilding:
         # For each scan, store the current accumulated observed points of the building
         self.curr_accumulated_points = np.array([]) # Accumulated observed points up to and including the current scan
         self.total_accum_obs_points = np.array([])  # Accumulated observed points up to and including the last scan which observes it during a sequence
+        self.curr_unobs_accum_points = np.array([]) # total_accum_obs_points - curr_accumulated_points
 
         # Create offset verticies for the building
         self.offset_vertices = self.get_offset_vertices(building_lines, offset_distance)
