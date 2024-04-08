@@ -122,10 +122,18 @@ class ExtractBuildingData:
         """
         This method extracts all of the points that hit buildings over the full sequence. It is done per scan.
         """
+        # Create a copy of the building_list for each worker process
+        with Pool() as pool:
+            building_lists = pool.map(lambda x: self.building_list.copy(), range(os.cpu_count()))
+
+        # Main per-frame extraction using multiprocessing
         num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         with Pool() as pool, tqdm(total=num_frames, desc="            ") as progress_bar:
-            pool.starmap(self.extract_per_scan_total_accum_obs_points, [frame_num for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame)])
+            pool.starmap(self.extract_per_scan_total_accum_obs_points, [(frame_num, building_list) for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame) for building_list in building_lists])
             progress_bar.update(num_frames)
+
+        # Merge the hit_building_list from all worker processes
+        self.hit_building_list = get_building_hit_list(sum([bl for bl in building_lists], []), self.min_num_points)
 
         # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         # progress_bar = tqdm(total=num_frames, desc="            ")
@@ -136,14 +144,14 @@ class ExtractBuildingData:
         #     self.extract_per_scan_total_accum_obs_points(frame_num)        
         #     progress_bar.update(1)
 
-    def extract_per_scan_total_accum_obs_points(self, frame_num):
+    def extract_per_scan_total_accum_obs_points(self, frame_num, building_list):
         # The total_accum file for this frame does not exist, extraction will continue
         new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
         if new_pcd is not None:
             transformation_matrix = self.velodyne_poses.get(frame_num)
             trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
             pos_latlong = trans_matrix_oxts[:3]
-            calc_points_within_build_poly(frame_num, self.building_list, new_pcd, pos_latlong, self.near_path_threshold_latlon)
+            calc_points_within_build_poly(frame_num, building_list, new_pcd, pos_latlong, self.near_path_threshold_latlon)
 
     def filter_hit_building_list(self):
         # Filter hit build list
