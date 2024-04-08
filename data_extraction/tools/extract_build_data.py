@@ -139,7 +139,7 @@ class ExtractBuildingData:
                 results = []
                 for result in pool.imap_unordered(self.process_batch, batches):
                     results.append(result)
-                    pbar.update(1)  # Update progress bar for each batch processed
+                    pbar.update(batch_size)  # Update progress bar for each batch processed
         
         # Merge or recombine results from each batch
         self.building_list = self.merge_building_lists(results)
@@ -304,18 +304,18 @@ class ExtractBuildingData:
             curr_obs_points = hit_building.get_curr_obs_points(frame_num)
             observed_points_frame.extend(curr_obs_points)
             
-            # Update buildings current accumulated points
-            if len(hit_building.curr_accumulated_points) == 0:
-                hit_building.curr_accumulated_points = curr_obs_points
-            else:
-                curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
-                hit_building.curr_accumulated_points = curr_accumulated_points
-            # Update the total accumulated points of the scan
-            curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
+            # # Update buildings current accumulated points
+            # if len(hit_building.curr_accumulated_points) == 0:
+            #     hit_building.curr_accumulated_points = curr_obs_points
+            # else:
+            #     curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
+            #     hit_building.curr_accumulated_points = curr_accumulated_points
+            # # Update the total accumulated points of the scan
+            # curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
 
             # TODO: Next: Test using get_curr_accum_obs_points() instead of curr_accumulated_points (then can use multithreading)
-            #hit_building.curr_accumulated_points = hit_building.get_curr_accum_obs_points(frame_num)
-            #curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
+            hit_building.curr_accumulated_points = hit_building.get_curr_accum_obs_points(frame_num)
+            curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
 
             # Only extract unobserved points if there are more total accumulated points than current accumulated points
             if len(hit_building.total_accum_obs_points) > len(hit_building.curr_accumulated_points):
