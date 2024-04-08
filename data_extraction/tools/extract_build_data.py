@@ -125,7 +125,7 @@ class ExtractBuildingData:
 
 
         with Manager() as manager:
-            # shared_building_list = manager.list(self.building_list)  # Create a managed list
+            shared_building_list = manager.list(self.building_list)  # Create a managed list
             # frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
             
             # tasks = [(frame_num, shared_building_list) for frame_num in frame_nums]
@@ -140,7 +140,7 @@ class ExtractBuildingData:
 
             with Pool() as pool, tqdm(total=len(chunks), desc="Processing frame chunks") as progress_bar:
                 for _ in pool.imap_unordered(self.process_chunk, chunks):
-                    progress_bar.update(1)
+                    progress_bar.update(chunk_size)
 
                     # ********************************
         # # Assuming self.init_frame, self.fin_frame, and self.inc_frame are defined
