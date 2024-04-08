@@ -179,7 +179,7 @@ class ExtractBuildingData:
     def process_chunk(self, chunk):
         # Directly use self.shared_building_list here
         for frame_num in chunk:
-            self.extract_per_scan_total_accum_obs_points(frame_num, self.shared_building_list
+            self.extract_per_scan_total_accum_obs_points(frame_num, self.shared_building_list)
                                                      
     # def create_building_list_copies(self):
     #     # Assuming self.building_list is already populated
