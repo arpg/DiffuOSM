@@ -126,7 +126,7 @@ class ExtractBuildingData:
 
 
         with Manager() as manager:
-            shared_building_list = manager.list(self.building_list)  # Create a managed list
+            self.shared_building_list = manager.list(self.building_list)  # Create a managed list
             # frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
             
             # tasks = [(frame_num, shared_building_list) for frame_num in frame_nums]
