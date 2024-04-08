@@ -130,11 +130,13 @@ class ExtractBuildingData:
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
         
         # Create a batch list containing frame numbers and a copy of building_list for each batch
+        print("         generating batches ...")
         batches = [(frame_batch, deepcopy(self.building_list)) for frame_batch in frame_batches]
+        print("         -> done.")
 
         with Pool() as pool:
             # Process each batch in parallel, with tqdm for progress tracking
-            with tqdm(total=len(batches), desc="Processing batches") as pbar:
+            with tqdm(total=len(batches), desc="            \nProcessing batches") as pbar:
                 # Using `imap_unordered` for asynchronous iteration and progress updates
                 results = []
                 for result in pool.imap_unordered(self.process_batch, batches):
