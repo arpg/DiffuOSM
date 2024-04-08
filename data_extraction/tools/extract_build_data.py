@@ -15,7 +15,6 @@ import glob
 import numpy as np
 from datetime import datetime, timedelta
 
-from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Manager, Pool
 from copy import copy, deepcopy
 
@@ -30,8 +29,6 @@ class ExtractBuildingData:
         self.seq = seq
         self.near_path_threshold_latlon = 0.001     # Distance to do initial filter of buildings near path in lat-long
         self.min_num_points = 1000                  # Example criterion for each building
-        # self.use_multithreaded_extraction = False # Use multithreading for per_frame / per_building point extraction
-        self.use_multithreaded_saving = False        # Use multithreading curr and total accum points saving
 
         self.PCProc = PointCloudProcessor()
 
@@ -263,25 +260,42 @@ class ExtractBuildingData:
         #     for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, [frame_num for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame)]):
         #         progress_bar.update(1)
 
-        num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
-        progress_bar = tqdm(total=num_frames, desc="            ")
-        for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
-            pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-            # Check if the labes file for this scan exist
-            if os.path.exists(pc_frame_label_path):
-                if self.use_multithreaded_saving: # Use executor to submit jobs to be processed in parallel
-                    with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
-                        thread_executor.submit(self.save_per_scan_obs_points, frame_num)
-                else:
-                        self.save_per_scan_obs_points(frame_num)
-                progress_bar.update(1)
+        # Create batches of frame numbers
+        frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
+        batch_size = 10
+        frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
+        
+        # Create a batch list containing frame numbers and a copy of building_list for each batch
+        # hit_build_list = self.hit_building_list
+        # batches = [(frame_batch, copy(hit_build_list)) for frame_batch in frame_batches]
 
+        with Pool(processes=4) as pool:
+            # Process each batch in parallel, with tqdm for progress tracking
+            with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
+                # Using `imap_unordered` for asynchronous iteration and progress updates
+                results = []
+                for result in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
+                    results.append(result)
+                    pbar.update(1)  # Update progress bar for each batch processed
+
+        # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
+        # progress_bar = tqdm(total=num_frames, desc="            ")
+        # for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
+        #     pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+        #     # Check if the labes file for this scan exist
+        #     if os.path.exists(pc_frame_label_path):
+        #         self.save_per_scan_obs_points(frame_num)
+        #         progress_bar.update(1)
 
         # Garbage collection
         del self.hit_building_list
 
-    def save_per_scan_obs_points_wrapper(self, frame_num):
-        self.save_per_scan_obs_points(frame_num)
+    def save_per_scan_obs_points_wrapper(self, batch_of_scans):
+        for scan_num in batch_of_scans:
+            self.save_per_scan_obs_points(scan_num)
+    
+    # def save_per_scan_obs_points_wrapper(self, frame_num):
+    #     self.save_per_scan_obs_points(frame_num)
 
     def save_per_scan_obs_points(self, frame_num):
         """
@@ -309,8 +323,8 @@ class ExtractBuildingData:
 
             for hit_building in buildings_with_frame:
                 # Update current frame's points
-                curr_obs_points = hit_building.get_curr_obs_points(frame_num)
-                observed_points_frame.extend(curr_obs_points)
+                hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
+                observed_points_frame.extend(hit_building_curr_obs_points)
                 
                 # # Update buildings current accumulated points
                 # if len(hit_building.curr_accumulated_points) == 0:
@@ -322,13 +336,13 @@ class ExtractBuildingData:
                 # curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
 
                 # TODO: Next: Test using get_curr_accum_obs_points() instead of curr_accumulated_points (then can use multithreading)
-                hit_building.curr_accumulated_points = hit_building.get_curr_accum_obs_points(frame_num)
-                curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
+                hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num)
+                curr_accum_points_frame.extend(hit_building_curr_accum_obs_points)
 
                 # Only extract unobserved points if there are more total accumulated points than current accumulated points
-                if len(hit_building.total_accum_obs_points) > len(hit_building.curr_accumulated_points):
-                    hit_building.curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building.curr_accumulated_points)
-                    unobserved_curr_accum_points_frame.extend(hit_building.curr_unobs_accum_points)
+                if len(hit_building.total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
+                    hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building.curr_accumulated_points)
+                    unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
 
                 # Update the total accumulated points of the frame using total accumulated points of the building
                 total_accum_points_frame.extend(hit_building.total_accum_obs_points)
