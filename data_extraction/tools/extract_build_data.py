@@ -145,9 +145,8 @@ class ExtractBuildingData:
                     pbar.update(1)  # Update progress bar for each batch processed
         
         # Merge or recombine results from each batch
-        print("         \nMerging building lists")
-        self.building_list = self.merge_building_lists(results)
-        print("         done.")
+        with time_block("           - merge_building_lists()"):
+            self.building_list = self.merge_building_lists(results)
 
         # with Manager() as manager:
         #     self.shared_building_list = manager.list(self.building_list)  # Create a managed list
@@ -227,7 +226,8 @@ class ExtractBuildingData:
         # Directly use self.shared_building_list here
         for scan_num in batch_of_scans:
             self.extract_per_scan_total_accum_obs_points(scan_num, building_list)
-                                                     
+        return building_list
+    
     # def create_building_list_copies(self):
     #     # Assuming self.building_list is already populated
     #     return [self.building_list.copy() for _ in range(os.cpu_count())]

@@ -15,6 +15,9 @@ from shapely.geometry import Polygon, Point
 import pickle
 from tqdm import tqdm
 
+import time
+from contextlib import contextmanager
+
 # Internal
 import tools.osm_building as osm_building
 from tools.convert_oxts_pose import *
@@ -123,6 +126,19 @@ def building_offset_to_o3d_lineset(building_list):
     building_line_set.paint_uniform_color([0, 0, 1])  # Blue color for buildings
     return building_line_set
 
+@contextmanager
+def time_block(method_name):
+    start_time = time.perf_counter()
+    try:
+        yield
+    finally:
+        end_time = time.perf_counter()
+        duration_seconds = end_time - start_time
+        hours = int(duration_seconds // 3600)
+        minutes = int((duration_seconds % 3600) // 60)
+        seconds = duration_seconds % 60
+        print(f"{method_name} took {hours}:{minutes:02d}:{seconds:.2f}")
+        
 def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_latlong, near_path_threshold):
     # Get 2D representation of accumulated_color_pc
     points_2D = np.asarray(np.copy(point_cloud_3D.points))
