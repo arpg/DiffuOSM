@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Manager, Pool
+from functools import partial
 
 # Internal imports
 from tools.labels import labels
@@ -137,9 +138,12 @@ class ExtractBuildingData:
             frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
             chunk_size = 10  # Example chunk size
             chunks = [list(zip(frame_nums[i:i + chunk_size], [shared_building_list] * chunk_size)) for i in range(0, len(frame_nums), chunk_size)]
+            
+            process_chunk_with_list = partial(self.process_chunk, building_list=self.shared_building_list)
 
             with Pool() as pool, tqdm(total=len(chunks), desc="Processing frame chunks") as progress_bar:
-                for _ in pool.imap_unordered(self.process_chunk, chunks):
+                # for _ in pool.imap_unordered(self.process_chunk, chunks):
+                for _ in pool.imap_unordered(process_chunk_with_list, chunks):
                     progress_bar.update(chunk_size)
 
                     # ********************************
