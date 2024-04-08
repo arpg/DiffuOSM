@@ -137,7 +137,7 @@ class ExtractBuildingData:
 
         with Pool() as pool:
             # Process each batch in parallel, with tqdm for progress tracking
-            with tqdm(total=len(batches), desc="            \nProcessing batches") as pbar:
+            with tqdm(total=len(batches), desc="            Processing batches") as pbar:
                 # Using `imap_unordered` for asynchronous iteration and progress updates
                 results = []
                 for result in pool.imap_unordered(self.process_batch, batches):
@@ -145,7 +145,9 @@ class ExtractBuildingData:
                     pbar.update(1)  # Update progress bar for each batch processed
         
         # Merge or recombine results from each batch
+        print("         \nMerging building lists")
         self.building_list = self.merge_building_lists(results)
+        print("         done.")
 
         # with Manager() as manager:
         #     self.shared_building_list = manager.list(self.building_list)  # Create a managed list
