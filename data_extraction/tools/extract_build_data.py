@@ -140,12 +140,11 @@ class ExtractBuildingData:
             # chunks = [list(zip(frame_nums[i:i + chunk_size], [shared_building_list] * chunk_size)) for i in range(0, len(frame_nums), chunk_size)]
             chunks = [frame_nums[i:i + chunk_size] for i in range(0, len(frame_nums), chunk_size)]
 
-            process_chunk_with_list = partial(self.process_chunk, building_list=self.shared_building_list)
-
-            with Pool() as pool, tqdm(total=len(chunks), desc="Processing frame chunks") as progress_bar:
-                # for _ in pool.imap_unordered(self.process_chunk, chunks):
-                for _ in pool.imap_unordered(process_chunk_with_list, chunks):
-                    progress_bar.update(chunk_size)
+            with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
+                for _ in pool.imap_unordered(self.process_chunk, chunks):
+                    # Ensure progress is updated correctly, accounting for potentially smaller last chunk
+                    progress_count = min(chunk_size, len(frame_nums) - progress_bar.n)
+                    progress_bar.update(progress_count)
 
                     # ********************************
         # # Assuming self.init_frame, self.fin_frame, and self.inc_frame are defined
