@@ -175,13 +175,12 @@ class ExtractBuildingData:
     def save_per_scan_obs_points(self, frame_num):
         """
         """
-        fullTime_begin = datetime.now()
         total_accum_points_frame = []
         building_edges_frame = []
         observed_points_frame = []
         curr_accum_points_frame = []
-        
-        time2getTF_begin = datetime.now()
+        unobserved_curr_accum_points_frame = []
+
         transformation_matrix = self.velodyne_poses.get(frame_num)
         trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
         pos_latlong = trans_matrix_oxts[:3]
@@ -194,16 +193,6 @@ class ExtractBuildingData:
 
         # Filter buildings that contain frame_num in their per_scan_points_dict
         buildings_with_frame = [building for building in close_buildings if frame_num in building.per_scan_points_dict]
-        time2getTF_dur = datetime.now() - time2getTF_begin
-
-        # # Cycle through each building that is in the filtered 'hit' list.
-        # for hit_building in self.hit_building_list:
-        #     distance = np.linalg.norm(pos_latlong[:2] - hit_building.center[:2])
-        #     if distance <= self.near_path_threshold_latlon:
-                # if frame_num in hit_building.per_scan_points_dict.keys():
-        
-        # for hit_building in close_buildings:
-        #     if frame_num in hit_building.per_scan_points_dict.keys():
 
         for hit_building in buildings_with_frame:
             # Update current frame's points
@@ -211,93 +200,33 @@ class ExtractBuildingData:
             observed_points_frame.extend(curr_obs_points)
             
             # Update buildings current accumulated points
-            if self.use_multithreaded_saving:
-                curr_accum_points_frame.extend(hit_building.get_curr_obs_points(frame_num))
+            if len(hit_building.curr_accumulated_points) == 0:
+                hit_building.curr_accumulated_points = curr_obs_points
             else:
-                if len(hit_building.curr_accumulated_points) == 0:
-                    hit_building.curr_accumulated_points = curr_obs_points
-                else:
-                    curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
-                    hit_building.curr_accumulated_points = curr_accumulated_points
-                # Update the total accumulated points of the scan
-                curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
-                
+                curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
+                hit_building.curr_accumulated_points = curr_accumulated_points
+            # Update the total accumulated points of the scan
+            curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
+
+            # TODO: Next: Test using get_curr_accum_obs_points() instead of curr_accumulated_points (then can use multithreading)
+            #hit_building.curr_accumulated_points = hit_building.get_curr_accum_obs_points(frame_num)
+            #curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
+
+            # Only extract unobserved points if there are more total accumulated points than current accumulated points
+            if len(hit_building.total_accum_obs_points) > len(hit_building.curr_accumulated_points):
+                hit_building.curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building.curr_accumulated_points)
+                unobserved_curr_accum_points_frame.extend(hit_building.curr_unobs_accum_points)
+
             # Update the total accumulated points of the frame using total accumulated points of the building
             total_accum_points_frame.extend(hit_building.total_accum_obs_points)
 
             # Update the building edges for the frame using the building edges
             building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
 
-            # TODO: we could test unobs accum here and make sure at least every building has unobs points in this frame (or skip)
-            #hitbuilding_unobserved_curr_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building.curr_accumulated_points)
-            #unobserved_curr_accum_points_frame.extend(hitbuilding_unobserved_curr_accum_points)
-
             # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
             # if not self.use_multithreaded_saving:
-            #     hit_building.per_scan_points_dict.pop(frame_num)
-
+            hit_building.per_scan_points_dict.pop(frame_num)
+        
         total_points_frame_bigger = len(total_accum_points_frame) > len(curr_accum_points_frame)
-        if total_points_frame_bigger: # Only save if there are points which have not been observed (ie: a ground truth greater to reach for)
-            time2KDTree_begin = datetime.now()
-            unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
-            time2KDTree_dur = datetime.now() - time2KDTree_begin
-
-            time2save_begin = datetime.now()
+        if total_points_frame_bigger:
             save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
-            time2save_dur = datetime.now() - time2save_begin
-
-            fullTime_dur = datetime.now() - fullTime_begin
-            print(f"\nFrame {frame_num} | Full time: {fullTime_dur}")
-            print(f"    - Time to TF: {time2getTF_dur} | Time to save: {time2save_dur} | Time to KDTree: {time2KDTree_dur}")
-
-# ********************************************************************************************************************************
-
-    # ''' 
-    # Step 3: Extract unobserved points via filtering of overlapping points.
-    # '''
-    # def extract_and_save_unobs_points(self):
-    #     print("\n     - Step 3) Extracting unobserved points from each frame.")
-
-    #     num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
-    #     progress_bar = tqdm(total=num_frames, desc="            ")
-    #     for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
-    #         self.process_scan(frame_num)
-    #         progress_bar.update(1)
-
-    # def process_scan(self, frame_num):
-    #     """
-    #     Process a scan frame and extract and save unobserved points.
-
-    #     """
-    #     pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-    #     frame_unobs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_unobs_points.bin')
-    #     # if not os.path.exists(frame_unobs_points_file) and os.path.exists(pc_frame_label_path):
-    #     if os.path.exists(pc_frame_label_path):
-    #         if self.use_multithreaded_extraction: # Use executor to submit jobs to be processed in parallel
-    #             with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
-    #                 thread_executor.submit(self.extract_and_save_per_scan_unobs_points, frame_num)
-    #         else:
-    #             self.extract_and_save_per_scan_unobs_points(frame_num)
-
-    # def extract_and_save_per_scan_unobs_points(self, frame_num):
-    #     """
-    #     Extracts and saves the unobserved points per scan.
-
-    #     """
-    #     #obs_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_obs_points.bin', )
-    #     obs_curr_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_curr_accum_points.bin', )
-    #     total_accum_points_file = os.path.join(self.extracted_per_frame_dir, f'{frame_num:010d}_total_accum_points.bin', )
-
-    #     if os.path.exists(obs_curr_accum_points_file):
-    #         #observed_points_frame = read_building_pc_file(obs_points_file)
-    #         curr_accum_points_frame = read_building_pc_file(obs_curr_accum_points_file)
-    #         total_accum_points_frame = read_building_pc_file(total_accum_points_file)
-
-    #         #unobserved_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, observed_points_frame)
-    #         unobserved_curr_accum_points_frame = self.PCProc.remove_overlapping_points(total_accum_points_frame, curr_accum_points_frame)
-            
-    #         # Removed total_accum_points file to save disk space
-    #         os.remove(total_accum_points_file)
-
-    #         save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_curr_accum_points_frame)
-    #         #save_per_scan_unobs_data(self.extracted_per_frame_dir, frame_num, unobserved_points_frame, unobserved_curr_accum_points_frame)
