@@ -122,9 +122,11 @@ class ExtractBuildingData:
         """
         This method extracts all of the points that hit buildings over the full sequence. It is done per scan.
         """
+        # # Create a copy of the building_list for each worker process
+        # with Pool() as pool:
+        #     building_lists = pool.map(lambda x: self.building_list.copy(), range(os.cpu_count()))
         # Create a copy of the building_list for each worker process
-        with Pool() as pool:
-            building_lists = pool.map(lambda x: self.building_list.copy(), range(os.cpu_count()))
+        building_lists = self.create_building_list_copies()
 
         # Main per-frame extraction using multiprocessing
         num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
@@ -143,6 +145,10 @@ class ExtractBuildingData:
         #     #if not os.path.exists(total_accum_points_file):
         #     self.extract_per_scan_total_accum_obs_points(frame_num)        
         #     progress_bar.update(1)
+
+    def create_building_list_copies(self):
+        # Assuming self.building_list is already populated
+        return [self.building_list.copy() for _ in range(os.cpu_count())]
 
     def extract_per_scan_total_accum_obs_points(self, frame_num, building_list):
         # The total_accum file for this frame does not exist, extraction will continue
