@@ -123,16 +123,20 @@ class ExtractBuildingData:
         This method extracts all of the points that hit buildings over the full sequence. It is done per scan.
         """
         # # Create a copy of the building_list for each worker process
-        # with Pool() as pool:
-        #     building_lists = pool.map(lambda x: self.building_list.copy(), range(os.cpu_count()))
-        # Create a copy of the building_list for each worker process
-        building_lists = self.create_building_list_copies()
+        # building_lists = self.create_building_list_copies()
 
-        # Main per-frame extraction using multiprocessing
-        num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
-        with Pool() as pool, tqdm(total=num_frames, desc="            ") as progress_bar:
-            pool.starmap(self.extract_per_scan_total_accum_obs_points, [(frame_num, building_list) for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame) for building_list in building_lists])
-            progress_bar.update(num_frames)
+        # Assuming self.init_frame, self.fin_frame, and self.inc_frame are defined
+        tasks = [(frame_num, self.building_list.copy()) for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame) for _ in range(os.cpu_count())]
+        with Pool() as pool:
+            with tqdm(total=len(tasks), desc="Processing frames") as progress_bar:
+                for _ in pool.imap_unordered(self.extract_per_scan_total_accum_obs_points, tasks):
+                    progress_bar.update(1)
+
+        # # Main per-frame extraction using multiprocessing
+        # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
+        # with Pool() as pool, tqdm(total=num_frames, desc="            ") as progress_bar:
+        #     pool.starmap(self.extract_per_scan_total_accum_obs_points, [(frame_num, building_list) for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame) for building_list in building_lists])
+        #     progress_bar.update(num_frames)
 
         # Merge the hit_building_list from all worker processes
         self.hit_building_list = get_building_hit_list(sum([bl for bl in building_lists], []), self.min_num_points)
