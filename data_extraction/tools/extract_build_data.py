@@ -137,8 +137,9 @@ class ExtractBuildingData:
             # Creating chunks of frames
             frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
             chunk_size = 10  # Example chunk size
-            chunks = [list(zip(frame_nums[i:i + chunk_size], [shared_building_list] * chunk_size)) for i in range(0, len(frame_nums), chunk_size)]
-            
+            # chunks = [list(zip(frame_nums[i:i + chunk_size], [shared_building_list] * chunk_size)) for i in range(0, len(frame_nums), chunk_size)]
+            chunks = [frame_nums[i:i + chunk_size] for i in range(0, len(frame_nums), chunk_size)]
+
             process_chunk_with_list = partial(self.process_chunk, building_list=self.shared_building_list)
 
             with Pool() as pool, tqdm(total=len(chunks), desc="Processing frame chunks") as progress_bar:
