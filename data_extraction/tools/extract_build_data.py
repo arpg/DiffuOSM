@@ -142,7 +142,7 @@ class ExtractBuildingData:
                 results = []
                 for result in pool.imap_unordered(self.process_batch, batches):
                     results.append(result)
-                    pbar.update(batch_size)  # Update progress bar for each batch processed
+                    pbar.update(1)  # Update progress bar for each batch processed
         
         # Merge or recombine results from each batch
         self.building_list = self.merge_building_lists(results)
