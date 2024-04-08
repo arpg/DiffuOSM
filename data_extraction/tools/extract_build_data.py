@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Manager, Pool
-from functools import partial
+from copy import deepcopy
 
 # Internal imports
 from tools.labels import labels
@@ -124,27 +124,46 @@ class ExtractBuildingData:
         This method extracts all of the points that hit buildings over the full sequence. It is done per scan.
         """
 
+        # Create batches of frame numbers
+        frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
+        batch_size = 10
+        frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
+        
+        # Create a batch list containing frame numbers and a copy of building_list for each batch
+        batches = [(frame_batch, deepcopy(self.building_list)) for frame_batch in frame_batches]
 
-        with Manager() as manager:
-            self.shared_building_list = manager.list(self.building_list)  # Create a managed list
-            # frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
+        with Pool() as pool:
+            # Process each batch in parallel, with tqdm for progress tracking
+            with tqdm(total=len(batches), desc="Processing batches") as pbar:
+                # Using `imap_unordered` for asynchronous iteration and progress updates
+                results = []
+                for result in pool.imap_unordered(self.process_batch, batches):
+                    results.append(result)
+                    pbar.update(1)  # Update progress bar for each batch processed
+        
+        # Merge or recombine results from each batch
+        self.building_list = self.merge_building_lists(results)
+
+        # with Manager() as manager:
+        #     self.shared_building_list = manager.list(self.building_list)  # Create a managed list
+        #     # frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
             
-            # tasks = [(frame_num, shared_building_list) for frame_num in frame_nums]
+        #     # tasks = [(frame_num, shared_building_list) for frame_num in frame_nums]
 
-            # with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
-            #     for _ in pool.imap_unordered(self.extract_per_scan_total_accum_obs_points_wrapper, tasks):
-            #         progress_bar.update(1)
-            # Creating chunks of frames
+        #     # with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
+        #     #     for _ in pool.imap_unordered(self.extract_per_scan_total_accum_obs_points_wrapper, tasks):
+        #     #         progress_bar.update(1)
+        #     # Creating chunks of frames
 
-            frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-            chunk_size = 1
-            chunks = [frame_nums[i:i + chunk_size] for i in range(0, len(frame_nums), chunk_size)]
+        #     frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
+        #     chunk_size = 1
+        #     chunks = [frame_nums[i:i + chunk_size] for i in range(0, len(frame_nums), chunk_size)]
 
-            with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
-                for _ in pool.imap_unordered(self.process_chunk, chunks):
-                    # Ensure progress is updated correctly, accounting for potentially smaller last chunk
-                    progress_count = min(chunk_size, len(frame_nums) - progress_bar.n)
-                    progress_bar.update(progress_count)
+        #     with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
+        #         for _ in pool.imap_unordered(self.process_chunk, chunks):
+        #             # Ensure progress is updated correctly, accounting for potentially smaller last chunk
+        #             progress_count = min(chunk_size, len(frame_nums) - progress_bar.n)
+        #             progress_bar.update(progress_count)
 
                     # ********************************
         # # Assuming self.init_frame, self.fin_frame, and self.inc_frame are defined
@@ -175,6 +194,28 @@ class ExtractBuildingData:
         #     #if not os.path.exists(total_accum_points_file):
         #     self.extract_per_scan_total_accum_obs_points(frame_num)        
         #     progress_bar.update(1)
+
+    def merge_building_lists(self, building_lists):
+        merged_buildings = {}
+
+        for sublist in building_lists:
+            for building in sublist:
+                building_id = building.get_building_id()
+                
+                if building_id not in merged_buildings:
+                    merged_buildings[building_id] = building
+                else:
+                    self.merge_buildings(merged_buildings[building_id], building)
+
+        return list(merged_buildings.values())
+
+    def merge_buildings(self, building1, building2):
+        for frame_num, points in building2.per_scan_points_dict.items():
+            if frame_num in building1.per_scan_points_dict:
+                combined_points = np.vstack({tuple(row) for row in np.vstack([building1.per_scan_points_dict[frame_num], points])})
+                building1.per_scan_points_dict[frame_num] = combined_points
+            else:
+                building1.per_scan_points_dict[frame_num] = points
 
     def process_chunk(self, chunk):
         # Directly use self.shared_building_list here
