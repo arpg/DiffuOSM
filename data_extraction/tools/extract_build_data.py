@@ -131,7 +131,8 @@ class ExtractBuildingData:
         
         # Create a batch list containing frame numbers and a copy of building_list for each batch
         print("         generating batches ...")
-        batches = [(frame_batch, deepcopy(self.building_list)) for frame_batch in frame_batches]
+        build_list = self.building_list
+        batches = [(frame_batch, deepcopy(build_list)) for frame_batch in frame_batches]
         print("         -> done.")
 
         with Pool() as pool:
