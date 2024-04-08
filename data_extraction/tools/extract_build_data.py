@@ -258,23 +258,23 @@ class ExtractBuildingData:
     '''
     def save_all_obs_points(self):
         print("\n     - Step 2) Saving observed points from each frame.")
-        num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
-        with Pool() as pool, tqdm(total=num_frames, desc="            ") as progress_bar:
-            for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, [frame_num for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame)]):
-                progress_bar.update(1)
-
         # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
-        # progress_bar = tqdm(total=num_frames, desc="            ")
-        # for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
-        #     pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-        #     # Check if the labes file for this scan exist
-        #     if os.path.exists(pc_frame_label_path):
-        #         if self.use_multithreaded_saving: # Use executor to submit jobs to be processed in parallel
-        #             with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
-        #                 thread_executor.submit(self.save_per_scan_obs_points, frame_num)
-        #         else:
-        #                 self.save_per_scan_obs_points(frame_num)
+        # with Pool() as pool, tqdm(total=num_frames, desc="            ") as progress_bar:
+        #     for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, [frame_num for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame)]):
         #         progress_bar.update(1)
+
+        num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
+        progress_bar = tqdm(total=num_frames, desc="            ")
+        for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
+            pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+            # Check if the labes file for this scan exist
+            if os.path.exists(pc_frame_label_path):
+                if self.use_multithreaded_saving: # Use executor to submit jobs to be processed in parallel
+                    with ThreadPoolExecutor(max_workers=os.cpu_count()) as thread_executor: # Initialize the ThreadPoolExecutor with the desired number of workers
+                        thread_executor.submit(self.save_per_scan_obs_points, frame_num)
+                else:
+                        self.save_per_scan_obs_points(frame_num)
+                progress_bar.update(1)
 
 
         # Garbage collection
@@ -338,7 +338,7 @@ class ExtractBuildingData:
 
                 # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
                 # if not self.use_multithreaded_saving:
-                hit_building.per_scan_points_dict.pop(frame_num)
+                #hit_building.per_scan_points_dict.pop(frame_num)
             
             total_points_frame_bigger = len(total_accum_points_frame) > len(curr_accum_points_frame)
             if total_points_frame_bigger:
