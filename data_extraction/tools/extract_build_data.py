@@ -16,7 +16,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import Pool
+from multiprocessing import Manager, Pool
 
 # Internal imports
 from tools.labels import labels
@@ -122,16 +122,31 @@ class ExtractBuildingData:
         """
         This method extracts all of the points that hit buildings over the full sequence. It is done per scan.
         """
+
+        with Manager() as manager:
+            shared_building_list = manager.list(self.building_list)  # Create a managed list
+            frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
+            
+            with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
+                # Wrap the task submission and progress update in a function
+                # to correctly scope variables for the tqdm update.
+                def process_frame(frame_num):
+                    self.extract_per_scan_total_accum_obs_points(frame_num, shared_building_list)
+                    progress_bar.update(1)
+                
+                pool.map(process_frame, frame_nums)
+
+                    # ********************************
+        # # Assuming self.init_frame, self.fin_frame, and self.inc_frame are defined
+        # tasks = [(frame_num, self.building_list.copy()) for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame) for _ in range(os.cpu_count())]
+        # with Pool() as pool:
+        #     with tqdm(total=len(tasks), desc="Processing frames") as progress_bar:
+        #         for _ in pool.imap_unordered(self.extract_per_scan_total_accum_obs_points, tasks):
+        #             progress_bar.update(1)
+
+                #************
         # # Create a copy of the building_list for each worker process
         # building_lists = self.create_building_list_copies()
-
-        # Assuming self.init_frame, self.fin_frame, and self.inc_frame are defined
-        tasks = [(frame_num, self.building_list.copy()) for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame) for _ in range(os.cpu_count())]
-        with Pool() as pool:
-            with tqdm(total=len(tasks), desc="Processing frames") as progress_bar:
-                for _ in pool.imap_unordered(self.extract_per_scan_total_accum_obs_points, tasks):
-                    progress_bar.update(1)
-
         # # Main per-frame extraction using multiprocessing
         # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         # with Pool() as pool, tqdm(total=num_frames, desc="            ") as progress_bar:
@@ -139,8 +154,9 @@ class ExtractBuildingData:
         #     progress_bar.update(num_frames)
 
         # Merge the hit_building_list from all worker processes
-        self.hit_building_list = get_building_hit_list(sum([bl for bl in building_lists], []), self.min_num_points)
+        # self.hit_building_list = get_building_hit_list(sum([bl for bl in building_lists], []), self.min_num_points)
 
+                        # ************************
         # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         # progress_bar = tqdm(total=num_frames, desc="            ")
         # for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
