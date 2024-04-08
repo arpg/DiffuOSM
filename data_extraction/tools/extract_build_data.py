@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Manager, Pool
-from copy import deepcopy
+from copy import copy, deepcopy
 
 # Internal imports
 from tools.labels import labels
@@ -132,7 +132,7 @@ class ExtractBuildingData:
         # Create a batch list containing frame numbers and a copy of building_list for each batch
         print("         generating batches ...")
         build_list = self.building_list
-        batches = [(frame_batch, deepcopy(build_list)) for frame_batch in frame_batches]
+        batches = [(frame_batch, copy(build_list)) for frame_batch in frame_batches]
         print("         -> done.")
 
         with Pool() as pool:
