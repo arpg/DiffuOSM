@@ -32,34 +32,33 @@ velodyne_poses_file = os.path.join(kitti360Path, 'data_poses', sequence, 'velody
 velodyne_poses = read_vel_poses(velodyne_poses_file)
 
 def read_bin_file(file_path):
-    point_cloud = np.fromfile(file_path)
-    return point_cloud.reshape(-1, 3)
+    point_cloud = np.fromfile(file_path).reshape(-1, 3)
+    point_cloud = np.load(file_path)
+    return point_cloud
 
 def read_edges_file(building_edges_file):
-    with open(building_edges_file, 'rb') as bin_file:
-        edges_array = np.fromfile(bin_file, dtype=float).reshape(-1, 2, 3)  # Reshape to 3D array
-    build_edges_points = edges_array.reshape(-1, 3)
+    # with open(building_edges_file, 'rb') as bin_file:
+    #     edges_array = np.fromfile(bin_file, dtype=float).reshape(-1, 2, 3)  # Reshape to 3D array
+    # build_edges_points = edges_array.reshape(-1, 3)
+    build_edges = np.load(building_edges_file)
+    build_edges_points = np.array([point for edge in build_edges for point in edge])
     build_edges_lines_idx = [[i, i + 1] for i in range(0, len(build_edges_points) - 1, 2)]
     return build_edges_points, build_edges_lines_idx
 
 def get_pcds(frame):
-    build_edges_file = os.path.join(per_frame_build, f'{frame:010d}_build_edges.bin', )
-    obs_curr_accum_points_file = os.path.join(per_frame_build, f'{frame:010d}_curr_accum_points.bin', )
-    obs_points_file = os.path.join(per_frame_build, f'{frame:010d}_obs_points.bin', )
-    total_accum_points_file = os.path.join(per_frame_build, f'{frame:010d}_total_accum_points.bin', )
-    unobs_points_file = os.path.join(per_frame_build, f'{frame:010d}_unobs_points.bin', )
-    unobs_curr_accum_points_file = os.path.join(per_frame_build, f'{frame:010d}_unobs_curr_accum_points.bin', )
+    build_edges_file = os.path.join(per_frame_build, f'{frame:010d}_build_edges.npy', )
+    obs_curr_accum_points_file = os.path.join(per_frame_build, f'{frame:010d}_curr_accum_points.npy', )
+    # obs_points_file = os.path.join(per_frame_build, f'{frame:010d}_obs_points.bin', )
+    # total_accum_points_file = os.path.join(per_frame_build, f'{frame:010d}_total_accum_points.bin', )
+    # unobs_points_file = os.path.join(per_frame_build, f'{frame:010d}_unobs_points.bin', )
+    unobs_curr_accum_points_file = os.path.join(per_frame_build, f'{frame:010d}_unobs_curr_accum_points.npy', )
 
     files_exist = False
-    if not os.path.exists(unobs_curr_accum_points_file) or not os.path.exists(obs_points_file):
+    if not os.path.exists(unobs_curr_accum_points_file) or not os.path.exists(obs_curr_accum_points_file):
         print(f"File not found: {unobs_curr_accum_points_file}")
         return files_exist, None, None, None, None
     else:
         files_exist = True
-
-    # total_accum_points = read_bin_file(total_accum_points_file)
-    # # total_accum_points[:, 2] = 0 # Set accum points to 2D grid
-    # total_accum_points_file[:, 2] -= np.min(total_accum_points_file[:, 2])
 
     obs_curr_accum_points = read_bin_file(obs_curr_accum_points_file)
     obs_curr_accum_points[:, 2] -= np.min(obs_curr_accum_points[:, 2])
@@ -175,14 +174,14 @@ def change_frame(vis, key_code):
 
 def find_min_max_file_names(label_path):
     # Pattern to match all .bin files in the directory
-    pattern = os.path.join(label_path, '*_total_accum_points.bin')
+    pattern = os.path.join(label_path, '*_unobs_curr_accum_points.npy')
 
     # List all .bin files
     files = glob.glob(pattern)
     # print(f"files[0]: {os.path.basename(files[0]).split('_accum_points')}")
 
     # Extract the integer part of the file names
-    file_numbers = [int(os.path.basename(file).split('_total_accum_points')[0]) for file in files]
+    file_numbers = [int(os.path.basename(file).split('_unobs_curr_accum_points')[0]) for file in files]
     # Find and return min and max
     if file_numbers:  # Check if list is not empty
         min_file, max_file = min(file_numbers), max(file_numbers)
@@ -192,7 +191,7 @@ def find_min_max_file_names(label_path):
 
 frame_min, frame_max = find_min_max_file_names(per_frame_build)
 # print(f"frame_min: {frame_min}, frame_max: {frame_max}")
-frame_inc = 10
+frame_inc = 5
 frame = frame_min
 ds_accum_points = []
 ds_accum_points_pcd = o3d.geometry.PointCloud()
