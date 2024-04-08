@@ -123,14 +123,23 @@ class ExtractBuildingData:
         This method extracts all of the points that hit buildings over the full sequence. It is done per scan.
         """
 
-        with Manager() as manager:
-            shared_building_list = manager.list(self.building_list)  # Create a managed list
-            frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-            
-            tasks = [(frame_num, shared_building_list) for frame_num in frame_nums]
 
-            with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
-                for _ in pool.imap_unordered(self.extract_per_scan_total_accum_obs_points_wrapper, tasks):
+        with Manager() as manager:
+            # shared_building_list = manager.list(self.building_list)  # Create a managed list
+            # frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
+            
+            # tasks = [(frame_num, shared_building_list) for frame_num in frame_nums]
+
+            # with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
+            #     for _ in pool.imap_unordered(self.extract_per_scan_total_accum_obs_points_wrapper, tasks):
+            #         progress_bar.update(1)
+            # Creating chunks of frames
+            frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
+            chunk_size = 10  # Example chunk size
+            chunks = [list(zip(frame_nums[i:i + chunk_size], [shared_building_list] * chunk_size)) for i in range(0, len(frame_nums), chunk_size)]
+
+            with Pool() as pool, tqdm(total=len(chunks), desc="Processing frame chunks") as progress_bar:
+                for _ in pool.imap_unordered(self.process_chunk, chunks):
                     progress_bar.update(1)
 
                     # ********************************
@@ -163,13 +172,20 @@ class ExtractBuildingData:
         #     self.extract_per_scan_total_accum_obs_points(frame_num)        
         #     progress_bar.update(1)
 
-    def create_building_list_copies(self):
-        # Assuming self.building_list is already populated
-        return [self.building_list.copy() for _ in range(os.cpu_count())]
+    def process_chunk(self, chunk, building_list):
+        for frame_num in chunk:
+            # Adapted logic to process a single frame at a time.
+            # Since we're in a chunked context, we use the provided building_list directly.
+            # If your processing function needs more arguments, adjust accordingly.
+            self.extract_per_scan_total_accum_obs_points(frame_num, building_list)
+
+    # def create_building_list_copies(self):
+    #     # Assuming self.building_list is already populated
+    #     return [self.building_list.copy() for _ in range(os.cpu_count())]
     
-    def extract_per_scan_total_accum_obs_points_wrapper(self, args):
-        frame_num, shared_building_list = args
-        self.extract_per_scan_total_accum_obs_points(frame_num, shared_building_list)
+    # def extract_per_scan_total_accum_obs_points_wrapper(self, args):
+    #     frame_num, shared_building_list = args
+    #     self.extract_per_scan_total_accum_obs_points(frame_num, shared_building_list)
 
     def extract_per_scan_total_accum_obs_points(self, frame_num, building_list):
         # The total_accum file for this frame does not exist, extraction will continue
