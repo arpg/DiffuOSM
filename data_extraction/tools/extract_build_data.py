@@ -136,7 +136,7 @@ class ExtractBuildingData:
             #         progress_bar.update(1)
             # Creating chunks of frames
             frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-            chunk_size = 100  # Example chunk size
+            chunk_size = 5  # Example chunk size
             # chunks = [list(zip(frame_nums[i:i + chunk_size], [shared_building_list] * chunk_size)) for i in range(0, len(frame_nums), chunk_size)]
             chunks = [frame_nums[i:i + chunk_size] for i in range(0, len(frame_nums), chunk_size)]
 
