@@ -135,9 +135,9 @@ class ExtractBuildingData:
             #     for _ in pool.imap_unordered(self.extract_per_scan_total_accum_obs_points_wrapper, tasks):
             #         progress_bar.update(1)
             # Creating chunks of frames
+
             frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-            chunk_size = 5  # Example chunk size
-            # chunks = [list(zip(frame_nums[i:i + chunk_size], [shared_building_list] * chunk_size)) for i in range(0, len(frame_nums), chunk_size)]
+            chunk_size = 1
             chunks = [frame_nums[i:i + chunk_size] for i in range(0, len(frame_nums), chunk_size)]
 
             with Pool() as pool, tqdm(total=len(frame_nums), desc="Processing frames") as progress_bar:
