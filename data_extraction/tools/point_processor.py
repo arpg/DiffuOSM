@@ -16,7 +16,7 @@ class PointCloudProcessor:
         total_accum_points_array = np.asarray(total_accum_points)
         frame_points_array = np.asarray(frame_points)
 
-        frame_points_kdtree = scipyKDTree(frame_points_array) # Use KD-tree for faster searching
+        frame_points_kdtree = cKDTree(frame_points_array)
 
         # Query the KDTree with all accum_points at once to find nearest neighbors
         distances, _ = frame_points_kdtree.query(total_accum_points_array)
