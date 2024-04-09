@@ -297,11 +297,13 @@ class ExtractBuildingData:
     def save_per_scan_obs_points(self, frame_num):
         """
         """
-        total_accum_points_frame = []
+        # total_accum_points_frame = []
         building_edges_frame = []
-        observed_points_frame = []
+        # observed_points_frame = []
         curr_accum_points_frame = []
         unobserved_curr_accum_points_frame = []
+        len_total_accum_frame = 0
+        len_curr_accum_frame = 0
 
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
         if os.path.exists(pc_frame_label_path):
@@ -321,24 +323,27 @@ class ExtractBuildingData:
             for hit_building in self.hit_building_list:
                 if frame_num in hit_building.per_scan_points_dict:
                     # Update current frame's points
-                    hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
-                    observed_points_frame.extend(hit_building_curr_obs_points)
+                    # hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
+                    # observed_points_frame.extend(hit_building_curr_obs_points)
 
                     # TODO: Next: Test using get_curr_accum_obs_points() instead of curr_accumulated_points (then can use multithreading)
                     hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num)
                     curr_accum_points_frame.extend(hit_building_curr_accum_obs_points)
 
                     # Only extract unobserved points if there are more total accumulated points than current accumulated points
-                    if len(hit_building.total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
+                    len_total_accum_build = len(hit_building.total_accum_obs_points)
+                    len_curr_accum_build = len(hit_building_curr_accum_obs_points)
+                    if len_total_accum_build > len_curr_accum_build:
                         hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building_curr_accum_obs_points)
                         unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
 
+                    len_total_accum_frame += len_total_accum_build
+                    len_curr_accum_frame += len_curr_accum_build
                     # Update the total accumulated points of the frame using total accumulated points of the building
-                    total_accum_points_frame.extend(hit_building.total_accum_obs_points)
+                    # total_accum_points_frame.extend(hit_building.total_accum_obs_points)
 
                     # Update the building edges for the frame using the building edges
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
-            
-            total_points_frame_bigger = len(total_accum_points_frame) > len(curr_accum_points_frame)
-            if total_points_frame_bigger:
+                    
+            if len_total_accum_frame > len_curr_accum_frame:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
