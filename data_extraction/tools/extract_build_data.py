@@ -86,8 +86,8 @@ class ExtractBuildingData:
         """
         """
         if not os.path.exists(self.velodyne_poses_file):
-            self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, save_to_file=True)
-        self.velodyne_poses = read_vel_poses(self.velodyne_poses_file) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
+            self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, use_latlon = False, save_to_file=False)
+        self.velodyne_poses = read_vel_poses(self.velodyne_poses_file, use_latlon=False) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
 
     def get_imu_poses_lat_long(self):
         '''
@@ -269,13 +269,10 @@ class ExtractBuildingData:
         # hit_build_list = self.hit_building_list
         # batches = [(frame_batch, copy(hit_build_list)) for frame_batch in frame_batches]
 
-        with Pool(processes=4) as pool:
+        with Pool() as pool:
             # Process each batch in parallel, with tqdm for progress tracking
             with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
-                # Using `imap_unordered` for asynchronous iteration and progress updates
-                results = []
-                for result in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
-                    results.append(result)
+                for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
                     pbar.update(1)  # Update progress bar for each batch processed
 
         # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
