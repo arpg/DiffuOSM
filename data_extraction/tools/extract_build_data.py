@@ -127,10 +127,7 @@ class ExtractBuildingData:
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
         
         # Create a batch list containing frame numbers and a copy of building_list for each batch
-        print("         generating batches ...")
-        build_list = self.building_list
-        batches = [(frame_batch, copy(build_list)) for frame_batch in frame_batches]
-        print("         -> done.")
+        batches = [(frame_batch, copy(self.building_list)) for frame_batch in frame_batches]
 
         with Pool() as pool:
             # Process each batch in parallel, with tqdm for progress tracking
@@ -224,14 +221,6 @@ class ExtractBuildingData:
         for scan_num in batch_of_scans:
             self.extract_per_scan_total_accum_obs_points(scan_num, building_list)
         return building_list
-    
-    # def create_building_list_copies(self):
-    #     # Assuming self.building_list is already populated
-    #     return [self.building_list.copy() for _ in range(os.cpu_count())]
-    
-    # def extract_per_scan_total_accum_obs_points_wrapper(self, args):
-    #     frame_num, shared_building_list = args
-    #     self.extract_per_scan_total_accum_obs_points(frame_num, shared_building_list)
 
     def extract_per_scan_total_accum_obs_points(self, frame_num, building_list):
         # The total_accum file for this frame does not exist, extraction will continue
@@ -252,19 +241,10 @@ class ExtractBuildingData:
     '''
     def save_all_obs_points(self):
         print("\n     - Step 2) Saving observed points from each frame.")
-        # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
-        # with Pool() as pool, tqdm(total=num_frames, desc="            ") as progress_bar:
-        #     for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, [frame_num for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame)]):
-        #         progress_bar.update(1)
-
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
         batch_size = 2
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
-        
-        # Create a batch list containing frame numbers and a copy of building_list for each batch
-        # hit_build_list = self.hit_building_list
-        # batches = [(frame_batch, copy(hit_build_list)) for frame_batch in frame_batches]
 
         with Pool(processes=2) as pool:
             # Process each batch in parallel, with tqdm for progress tracking
@@ -285,9 +265,6 @@ class ExtractBuildingData:
         for scan_num in batch_of_scans:
             self.save_per_scan_obs_points(scan_num)
     
-    # def save_per_scan_obs_points_wrapper(self, frame_num):
-    #     self.save_per_scan_obs_points(frame_num)
-
     def save_per_scan_obs_points(self, frame_num):
         """
         """

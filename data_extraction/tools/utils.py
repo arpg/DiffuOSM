@@ -177,9 +177,7 @@ def get_building_hit_list(building_list, min_num_points):
     hit_building_list = []
 
     for building in building_list:
-        # building.set_total_accum_obs_points()
-        building.num_points_total_accum = len(building.total_accum_obs_points)
-        if building.num_points_total_accum >= min_num_points:
+        if len(building.get_total_accum_obs_points()) >= min_num_points:
             hit_building_list.append(building)
 
     return hit_building_list
