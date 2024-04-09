@@ -243,7 +243,7 @@ class ExtractBuildingData:
 
     def save_all_building_scan_dicts(self):
         for build in self.building_list:
-            build_point_dict = pickle.dumps(build.per_scan_points_dict)
+            build_point_dict = pickle.dumps(list(build.per_scan_points_dict))
             path = os.path.join(self.extracted_per_frame_dir, '{build.id}_build_point_dict.npy')
             np.save(path, build_point_dict)
             build.per_scan_points_dict_keys = build.per_scan_points_dict.keys()
