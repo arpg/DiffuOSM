@@ -243,11 +243,8 @@ class ExtractBuildingData:
             calc_points_within_build_poly(frame_num, building_list, new_pcd, pos_latlong, self.near_path_threshold_latlon)
 
     def filter_hit_building_list(self):
-        # Filter hit build list
-        self.hit_building_list = get_building_hit_list(self.building_list, self.min_num_points)
-        
-        # Garbage collect
-        del self.building_list
+        # Filter building list so only buildings hit are considered
+        self.building_list = get_building_hit_list(self.building_list, self.min_num_points)
 
     '''
     STEP 2: So we dont need to repeat step 1.
@@ -269,7 +266,7 @@ class ExtractBuildingData:
         # hit_build_list = self.hit_building_list
         # batches = [(frame_batch, copy(hit_build_list)) for frame_batch in frame_batches]
 
-        with Pool(processes=5) as pool:
+        with Pool(processes=2) as pool:
             # Process each batch in parallel, with tqdm for progress tracking
             with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
                 for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
@@ -283,9 +280,6 @@ class ExtractBuildingData:
         #     if os.path.exists(pc_frame_label_path):
         #         self.save_per_scan_obs_points(frame_num)
         #         progress_bar.update(1)
-
-        # Garbage collection
-        # del self.hit_building_list
 
     def save_per_scan_obs_points_wrapper(self, batch_of_scans):
         for scan_num in batch_of_scans:
@@ -307,20 +301,7 @@ class ExtractBuildingData:
 
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
         if os.path.exists(pc_frame_label_path):
-            # transformation_matrix = self.velodyne_poses.get(frame_num)
-            # trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-            # pos_latlong = trans_matrix_oxts[:3]
-
-            # # New Filter build near pose
-            # building_centers_2d = np.array([building.center[:2] for building in self.hit_building_list])
-            # distances = np.linalg.norm(pos_latlong[:2] - building_centers_2d, axis=1)
-            # close_building_indices = np.where(distances <= self.near_path_threshold_latlon)[0]
-            # close_buildings = [self.hit_building_list[idx] for idx in close_building_indices]
-
-            # # Filter buildings that contain frame_num in their per_scan_points_dict
-            # buildings_with_frame = [building for building in close_buildings if frame_num in building.per_scan_points_dict]
-
-            for hit_building in self.hit_building_list:
+            for hit_building in self.building_list:
                 if frame_num in hit_building.per_scan_points_dict:
                     # Update current frame's points
                     # hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
