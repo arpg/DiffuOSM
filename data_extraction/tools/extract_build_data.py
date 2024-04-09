@@ -248,14 +248,14 @@ class ExtractBuildingData:
             np.save(path, build_point_dict)
             build.per_scan_points_dict_keys = build.per_scan_points_dict.keys()
             build.per_scan_points_dict = None
-
+        
     def get_building_scan_dict(self, build_id):
         # Load the serialized dictionary using numpy.load
         path = os.path.join(self.extracted_per_frame_dir, '{build_id}_build_point_dict.npy')
-        per_scan_points_dict = np.load(path, allow_pickle=False)
+        loaded_serialized_dict = np.load(path, allow_pickle=False)
 
         # Deserialize the dictionary
-        # per_scan_points_dict = pickle.loads(loaded_serialized_dict)
+        per_scan_points_dict = pickle.loads(loaded_serialized_dict)
 
         return per_scan_points_dict
 
@@ -322,6 +322,6 @@ class ExtractBuildingData:
                         hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
                         unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
             
-            hit_building.per_scan_points_dict = None
+                    hit_building.per_scan_points_dict = None
             if len(unobserved_curr_accum_points_frame) > 0:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
