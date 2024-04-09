@@ -266,24 +266,24 @@ class ExtractBuildingData:
     def save_all_obs_points(self):
         print("\n     - Step 2) Saving observed points from each frame.")
         # Create batches of frame numbers
-        # frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        # batch_size = 5
-        # frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
+        frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
+        batch_size = 5
+        frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
 
-        # with Pool(processes=4) as pool:
-        #     # Process each batch in parallel, with tqdm for progress tracking
-        #     with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
-        #         for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
-        #             pbar.update(1)  # Update progress bar for each batch processed
+        with Pool(processes=4) as pool:
+            # Process each batch in parallel, with tqdm for progress tracking
+            with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
+                for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
+                    pbar.update(1)  # Update progress bar for each batch processed
 
-        num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
-        progress_bar = tqdm(total=num_frames, desc="            ")
-        for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
-            pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
-            # Check if the labes file for this scan exist
-            if os.path.exists(pc_frame_label_path):
-                self.save_per_scan_obs_points(frame_num)
-                progress_bar.update(1)
+        # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
+        # progress_bar = tqdm(total=num_frames, desc="            ")
+        # for frame_num in range(self.init_frame, self.fin_frame + 1, self.inc_frame):
+        #     pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
+        #     # Check if the labes file for this scan exist
+        #     if os.path.exists(pc_frame_label_path):
+        #         self.save_per_scan_obs_points(frame_num)
+        #         progress_bar.update(1)
 
     def save_per_scan_obs_points_wrapper(self, batch_of_scans):
         for scan_num in batch_of_scans:
@@ -303,7 +303,7 @@ class ExtractBuildingData:
             for hit_building in self.building_list:
                 if frame_num in hit_building.per_scan_points_dict_keys:
                     hit_building.per_scan_points_dict = self.get_building_scan_dict(hit_building.id)
-                    print("hit_building.per_scan_points_dict: {hit_building.per_scan_points_dict}")
+
                     # Update the building edges for the frame using the building edges
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
 
