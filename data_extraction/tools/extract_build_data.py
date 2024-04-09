@@ -86,8 +86,8 @@ class ExtractBuildingData:
         """
         """
         if not os.path.exists(self.velodyne_poses_file):
-            self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, use_latlon = False, save_to_file=False)
-        self.velodyne_poses = read_vel_poses(self.velodyne_poses_file, use_latlon=False) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
+            self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, save_to_file=False)
+        self.velodyne_poses = read_vel_poses(self.velodyne_poses_file) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
 
     def get_imu_poses_lat_long(self):
         '''
