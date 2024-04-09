@@ -302,7 +302,7 @@ class ExtractBuildingData:
         if os.path.exists(pc_frame_label_path):
             for hit_building in self.building_list:
                 if frame_num in hit_building.per_scan_points_dict_keys:
-                    hit_building.per_scan_points_dict = self.get_building_scan_dict(hit_building.id)
+                    per_scan_points_dict = self.get_building_scan_dict(hit_building.id)
 
                     # Update the building edges for the frame using the building edges
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
@@ -311,10 +311,10 @@ class ExtractBuildingData:
                     # hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
                     # observed_points_frame.extend(hit_building_curr_obs_points)
 
-                    hit_building_total_accum_obs_points = hit_building.get_total_accum_obs_points()
+                    hit_building_total_accum_obs_points = hit_building.get_total_accum_obs_points(per_scan_points_dict)
                     # total_accum_points_frame.extend(hit_building_total_accum_obs_points)
 
-                    hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num)
+                    hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num, per_scan_points_dict)
                     curr_accum_points_frame.extend(hit_building_curr_accum_obs_points)
 
                     # Only extract unobserved points if there are more total accumulated points than current accumulated points
