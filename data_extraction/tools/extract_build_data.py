@@ -262,7 +262,7 @@ class ExtractBuildingData:
 
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        batch_size = 5
+        batch_size = 1
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
         
         # Create a batch list containing frame numbers and a copy of building_list for each batch
@@ -344,6 +344,6 @@ class ExtractBuildingData:
 
                     # Update the building edges for the frame using the building edges
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
-                    
+
             if len_total_accum_frame > len_curr_accum_frame:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
