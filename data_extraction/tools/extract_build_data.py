@@ -37,7 +37,7 @@ class ExtractBuildingData:
 
         self.initiate_extraction()
         self.extract_obs_and_accum_obs_points()     # Step 1
-        self.save_all_obs_points()                  # Step 2
+        # self.save_all_obs_points()                  # Step 2
         # self.extract_and_save_unobs_points()      # Step 3
         self.conclude_extraction()
 
