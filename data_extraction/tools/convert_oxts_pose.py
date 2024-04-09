@@ -9,8 +9,23 @@ data.py, and convertPoseToOxts.py modules.
 import xml.etree.ElementTree as ET
 import os
 import numpy as np
+from pyproj import Proj, transform
+
+# Initialize projection objects for WGS84 and Web Mercator
+wgs84 = Proj('epsg:4326')  # WGS 84
+web_mercator = Proj('epsg:3857')  # Web Mercator
 
 er = 6378137. # average earth radius at the equator
+
+def latlon_to_webmercator(lat, lon):
+    '''Converts lat/lon coordinates (WGS84) to Web Mercator (EPSG:3857).'''
+    mx, my = transform(wgs84, web_mercator, lon, lat)
+    return mx, my
+
+def webmercator_to_latlon(mx, my):
+    '''Converts Web Mercator (EPSG:3857) coordinates to lat/lon (WGS84).'''
+    lon, lat = transform(web_mercator, wgs84, mx, my)
+    return lat, lon
 
 def latlonToMercator(lat,lon,scale):
   ''' converts lat/lon coordinates to mercator coordinates using mercator scale '''
@@ -290,6 +305,28 @@ def convertOxtsToPose(oxts):
 '''
 OSM-to-pose conversion (this file)
 '''
+
+def convertOSMToPose(osm_edge):
+  ''' converts an OSM edge to pose using web mercator projection'''
+
+  single_value = not isinstance(osm_edge, list)
+  if single_value:
+    osm_edge = [osm_edge]
+  
+  origin_oxts = [48.9843445, 8.4295857] # lake in Karlsruhe 
+  ox,oy = latlon_to_webmercator(origin_oxts[0],origin_oxts[1])
+  origin = np.array([ox, oy, 0])
+  
+  transformed_edge = []
+  # for all vertices in edge do
+  for i in range(len(osm_edge)):
+    # translation vector
+    tx, ty = latlon_to_webmercator(osm_edge[i][0], osm_edge[i][1])
+    t = np.array([tx, ty, 0]) - origin  # Shift to origin of poses
+    transformed_edge.append(t)
+
+  return transformed_edge
+
 def convert_coordinates(lat, lon, default_z=0):
     scale = latToScale(lat)
     x, y = latlonToMercator(lat, lon, scale)

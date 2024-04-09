@@ -107,6 +107,7 @@ def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
                     start_point = [exterior_coords[i][1], exterior_coords[i][0], 0]
                     end_point = [exterior_coords[i + 1][1], exterior_coords[i + 1][0], 0]
                     per_building_lines.append([start_point, end_point])
+                    # per_building_lines.append(convertOSMToPose([start_point, end_point]))
                     building_lines.append([start_point, end_point])
                 new_building = osm_building.OSMBuilding(per_building_lines, building_id)
                 building_list.append(new_building)
