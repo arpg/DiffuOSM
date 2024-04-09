@@ -19,8 +19,8 @@ class OSMBuilding:
 
         # For each scan, store the current observed points of the building
         self.per_scan_points_dict = dict()
-        self.per_scan_points_dict_keys = None
-        
+        self.per_scan_points_dict_keys = []
+
         # For each scan, store the current accumulated observed points of the building
         self.total_accum_obs_points = np.array([])  # Accumulated observed points up to and including the last scan which observes it during a sequence
 
@@ -50,6 +50,14 @@ class OSMBuilding:
         total_accum_obs_points = np.copy(np.asarray(total_accum_flat).reshape(-1, 3))
         return total_accum_obs_points
 
+    def get_total_accum_obs_points(self, per_scan_points_dict):
+        """
+        returns accumulated observed points of building up to and including the last scan which observed it.
+        """
+        total_accum_flat = list(chain.from_iterable(per_scan_points_dict.values()))
+        total_accum_obs_points = np.copy(np.asarray(total_accum_flat).reshape(-1, 3))
+        return total_accum_obs_points
+    
     def get_curr_accum_obs_points(self, frame_num):
         """
         Returns accumulated observed points of building up to and including the {frame_num} scan.
@@ -58,6 +66,14 @@ class OSMBuilding:
         curr_accum_flat = list(chain.from_iterable(sub_dict.values()))
         return np.asarray(curr_accum_flat).reshape(-1, 3)
 
+    def get_curr_accum_obs_points(self, frame_num, per_scan_points_dict):
+        """
+        Returns accumulated observed points of building up to and including the {frame_num} scan.
+        """
+        sub_dict = {current_frame: points for current_frame, points in per_scan_points_dict.items() if current_frame <= frame_num}
+        curr_accum_flat = list(chain.from_iterable(sub_dict.values()))
+        return np.asarray(curr_accum_flat).reshape(-1, 3)
+    
     def get_curr_obs_points(self, frame_num):
         """
         Get the current observed points for a given frame number.
