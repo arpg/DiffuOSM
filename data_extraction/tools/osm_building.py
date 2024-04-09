@@ -19,7 +19,8 @@ class OSMBuilding:
 
         # For each scan, store the current observed points of the building
         self.per_scan_points_dict = dict()
-
+        self.per_scan_points_dict_keys = None
+        
         # For each scan, store the current accumulated observed points of the building
         self.total_accum_obs_points = np.array([])  # Accumulated observed points up to and including the last scan which observes it during a sequence
 

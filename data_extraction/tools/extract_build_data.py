@@ -236,6 +236,24 @@ class ExtractBuildingData:
         # Filter building list so only buildings hit are considered
         self.building_list = get_building_hit_list(self.building_list, self.min_num_points)
 
+    def save_all_building_scans(self):
+        for build in self.building_list:
+            build_point_dict = pickle.dumps(build.per_scan_points_dict)
+            path = os.path.join(self.extracted_per_frame_dir, '{build.id}_build_point_dict.npy')
+            np.save(path, build_point_dict)
+            build.per_scan_points_dict_keys = build.per_scan_points_dict.keys()
+            build.per_scan_points_dict = None
+
+    def get_building_scan_dict(self, build_id):
+        # Load the serialized dictionary using numpy.load
+        path = os.path.join(self.extracted_per_frame_dir, '{build_id}_build_point_dict.npy')
+        loaded_serialized_dict = np.load(path, allow_pickle=True)
+
+        # Deserialize the dictionary
+        per_scan_points_dict = pickle.loads(loaded_serialized_dict)
+
+        return per_scan_points_dict
+
     '''
     STEP 2: So we dont need to repeat step 1.
     - This allows for us to optimize for faster method for unobserved extraction w/o needing to keep repeating step 1.
@@ -278,7 +296,9 @@ class ExtractBuildingData:
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
         if os.path.exists(pc_frame_label_path):
             for hit_building in self.building_list:
-                if frame_num in hit_building.per_scan_points_dict:
+                if frame_num in hit_building.per_scan_points_dict_keys:
+                    hit_building.per_scan_points_dict = self.get_building_scan_dict(hit_building.id)
+
                     # Update the building edges for the frame using the building edges
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
 
@@ -296,6 +316,7 @@ class ExtractBuildingData:
                     if len(hit_building_total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
                         hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
                         unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
-
+            
+            hit_building.per_scan_points_dict = None
             if len(unobserved_curr_accum_points_frame) > 0:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
