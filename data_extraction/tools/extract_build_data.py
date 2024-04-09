@@ -285,7 +285,7 @@ class ExtractBuildingData:
         #         progress_bar.update(1)
 
         # Garbage collection
-        del self.hit_building_list
+        # del self.hit_building_list
 
     def save_per_scan_obs_points_wrapper(self, batch_of_scans):
         for scan_num in batch_of_scans:
