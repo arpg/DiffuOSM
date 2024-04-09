@@ -305,38 +305,39 @@ class ExtractBuildingData:
 
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
         if os.path.exists(pc_frame_label_path):
-            transformation_matrix = self.velodyne_poses.get(frame_num)
-            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-            pos_latlong = trans_matrix_oxts[:3]
+            # transformation_matrix = self.velodyne_poses.get(frame_num)
+            # trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
+            # pos_latlong = trans_matrix_oxts[:3]
 
-            # New Filter build near pose
-            building_centers_2d = np.array([building.center[:2] for building in self.hit_building_list])
-            distances = np.linalg.norm(pos_latlong[:2] - building_centers_2d, axis=1)
-            close_building_indices = np.where(distances <= self.near_path_threshold_latlon)[0]
-            close_buildings = [self.hit_building_list[idx] for idx in close_building_indices]
+            # # New Filter build near pose
+            # building_centers_2d = np.array([building.center[:2] for building in self.hit_building_list])
+            # distances = np.linalg.norm(pos_latlong[:2] - building_centers_2d, axis=1)
+            # close_building_indices = np.where(distances <= self.near_path_threshold_latlon)[0]
+            # close_buildings = [self.hit_building_list[idx] for idx in close_building_indices]
 
-            # Filter buildings that contain frame_num in their per_scan_points_dict
-            buildings_with_frame = [building for building in close_buildings if frame_num in building.per_scan_points_dict]
+            # # Filter buildings that contain frame_num in their per_scan_points_dict
+            # buildings_with_frame = [building for building in close_buildings if frame_num in building.per_scan_points_dict]
 
-            for hit_building in buildings_with_frame:
-                # Update current frame's points
-                hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
-                observed_points_frame.extend(hit_building_curr_obs_points)
+            for hit_building in self.hit_building_list:
+                if frame_num in hit_building.per_scan_points_dict:
+                    # Update current frame's points
+                    hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
+                    observed_points_frame.extend(hit_building_curr_obs_points)
 
-                # TODO: Next: Test using get_curr_accum_obs_points() instead of curr_accumulated_points (then can use multithreading)
-                hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num)
-                curr_accum_points_frame.extend(hit_building_curr_accum_obs_points)
+                    # TODO: Next: Test using get_curr_accum_obs_points() instead of curr_accumulated_points (then can use multithreading)
+                    hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num)
+                    curr_accum_points_frame.extend(hit_building_curr_accum_obs_points)
 
-                # Only extract unobserved points if there are more total accumulated points than current accumulated points
-                if len(hit_building.total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
-                    hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building_curr_accum_obs_points)
-                    unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
+                    # Only extract unobserved points if there are more total accumulated points than current accumulated points
+                    if len(hit_building.total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
+                        hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building_curr_accum_obs_points)
+                        unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
 
-                # Update the total accumulated points of the frame using total accumulated points of the building
-                total_accum_points_frame.extend(hit_building.total_accum_obs_points)
+                    # Update the total accumulated points of the frame using total accumulated points of the building
+                    total_accum_points_frame.extend(hit_building.total_accum_obs_points)
 
-                # Update the building edges for the frame using the building edges
-                building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
+                    # Update the building edges for the frame using the building edges
+                    building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
             
             total_points_frame_bigger = len(total_accum_points_frame) > len(curr_accum_points_frame)
             if total_points_frame_bigger:
