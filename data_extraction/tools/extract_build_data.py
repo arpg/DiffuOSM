@@ -252,7 +252,7 @@ class ExtractBuildingData:
     def get_building_scan_dict(self, build_id):
         # Load the serialized dictionary using numpy.load
         path = os.path.join(self.extracted_per_frame_dir, '{build_id}_build_point_dict.npy')
-        per_scan_points_dict = np.load(path, allow_pickle=True)
+        per_scan_points_dict = np.load(path, allow_pickle=False)
 
         # Deserialize the dictionary
         # per_scan_points_dict = pickle.loads(loaded_serialized_dict)
