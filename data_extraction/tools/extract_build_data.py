@@ -303,7 +303,7 @@ class ExtractBuildingData:
             for hit_building in self.building_list:
                 if frame_num in hit_building.per_scan_points_dict_keys:
                     hit_building.per_scan_points_dict = self.get_building_scan_dict(hit_building.id)
-
+                    print("hit_building.per_scan_points_dict: {hit_building.per_scan_points_dict}")
                     # Update the building edges for the frame using the building edges
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
 
