@@ -262,7 +262,7 @@ class ExtractBuildingData:
 
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        batch_size = 10
+        batch_size = 5
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
         
         # Create a batch list containing frame numbers and a copy of building_list for each batch
@@ -322,15 +322,6 @@ class ExtractBuildingData:
                 # Update current frame's points
                 hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
                 observed_points_frame.extend(hit_building_curr_obs_points)
-                
-                # # Update buildings current accumulated points
-                # if len(hit_building.curr_accumulated_points) == 0:
-                #     hit_building.curr_accumulated_points = curr_obs_points
-                # else:
-                #     curr_accumulated_points = np.concatenate((curr_obs_points, hit_building.curr_accumulated_points), axis=0)
-                #     hit_building.curr_accumulated_points = curr_accumulated_points
-                # # Update the total accumulated points of the scan
-                # curr_accum_points_frame.extend(hit_building.curr_accumulated_points)
 
                 # TODO: Next: Test using get_curr_accum_obs_points() instead of curr_accumulated_points (then can use multithreading)
                 hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num)
@@ -346,10 +337,6 @@ class ExtractBuildingData:
 
                 # Update the building edges for the frame using the building edges
                 building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
-
-                # Pop the current frame's points from the building's per_scan_points_dict and curr_accum_points_dict
-                # if not self.use_multithreaded_saving:
-                #hit_building.per_scan_points_dict.pop(frame_num)
             
             total_points_frame_bigger = len(total_accum_points_frame) > len(curr_accum_points_frame)
             if total_points_frame_bigger:
