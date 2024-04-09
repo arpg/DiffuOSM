@@ -113,6 +113,11 @@ class ExtractBuildingData:
         # Filter hit buildings such that every building has at least one point accumulated
         self.filter_hit_building_list()
 
+        # Save all building scan dicts
+        print("         - Saving all building scan dicts.")
+        self.save_all_building_scan_dicts()
+        print("         - done.")
+
         # View, if desired (Not reccomended for inc_frame of 1 on an entire sequence)
         # vis_total_accum_points(self.hit_building_list)
 
@@ -236,7 +241,7 @@ class ExtractBuildingData:
         # Filter building list so only buildings hit are considered
         self.building_list = get_building_hit_list(self.building_list, self.min_num_points)
 
-    def save_all_building_scans(self):
+    def save_all_building_scan_dicts(self):
         for build in self.building_list:
             build_point_dict = pickle.dumps(build.per_scan_points_dict)
             path = os.path.join(self.extracted_per_frame_dir, '{build.id}_build_point_dict.npy')
