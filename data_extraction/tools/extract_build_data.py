@@ -293,7 +293,7 @@ class ExtractBuildingData:
 
                     # Only extract unobserved points if there are more total accumulated points than current accumulated points
                     if len(hit_building_total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
-                        hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building.total_accum_obs_points, hit_building_curr_accum_obs_points)
+                        hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
                         unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
 
             if len(unobserved_curr_accum_points_frame) > 0:
