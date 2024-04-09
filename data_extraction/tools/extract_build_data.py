@@ -142,6 +142,7 @@ class ExtractBuildingData:
         with time_block("           - merge_building_lists()"):
             self.building_list = self.merge_building_lists(results)
 
+        del batches
         # with Manager() as manager:
         #     self.shared_building_list = manager.list(self.building_list)  # Create a managed list
         #     # frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
@@ -243,10 +244,10 @@ class ExtractBuildingData:
         print("\n     - Step 2) Saving observed points from each frame.")
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        batch_size = 2
+        batch_size = 1
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
 
-        with Pool(processes=2) as pool:
+        with Pool(processes=4) as pool:
             # Process each batch in parallel, with tqdm for progress tracking
             with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
                 for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
