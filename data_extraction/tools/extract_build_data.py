@@ -108,19 +108,27 @@ class ExtractBuildingData:
         # Initial filter of OSM buildings via boundary around IMU path in lat-long
         self.building_list = get_buildings_near_poses(self.osm_file_path, self.xyz_positions, self.near_path_threshold_latlon)
         
-        # Main per-frame extraction
-        self.extract_accumulated_points()
+        # Building point extraction
+        path_pattern = os.path.join(self.extracted_per_frame_dir, '*_build_point_dict.npy')
+        matching_files = glob.glob(path_pattern)
+        if not matching_files:
+            # Main per-frame extraction
+            self.extract_accumulated_points()
 
-        # Filter hit buildings such that every building has at least one point accumulated
-        self.filter_hit_building_list()
-
-        # Save all building scan dicts
-        print("         - Saving all building scan dicts.")
-        self.save_all_building_scan_dicts()
-        print("         - done.")
-
-        # View, if desired (Not reccomended for inc_frame of 1 on an entire sequence)
-        # vis_total_accum_points(self.hit_building_list)
+            # Filter hit buildings such that every building has at least one point accumulated
+            self.filter_hit_building_list()
+        
+            # View, if desired (Not reccomended for inc_frame of 1 on an entire sequence)
+            # vis_total_accum_points(self.building_list)
+            
+            # Save all building scan dicts
+            print("         - Saving all building scan dicts.")
+            self.save_all_building_scan_dicts()
+            print("         - done.")
+        else:
+            print("         - Saved building point dicts found. Filtering building list now.")
+            self.building_list = self.filter_hit_building_list_from_saved_dicts()
+            print("         - Done.")
 
     def extract_accumulated_points(self):
         """
@@ -242,6 +250,15 @@ class ExtractBuildingData:
         # Filter building list so only buildings hit are considered
         self.building_list = get_building_hit_list(self.building_list, self.min_num_points)
 
+    def filter_hit_building_list_from_saved_dicts(self):
+        # Filter building list so only buildings hit are considered
+        filtered_building_list = []
+        for build in self.building_list:
+            build_points_dict = os.path.join(self.extracted_per_frame_dir, f'{build.id}_build_point_dict.npy')
+            if os.path.exists(build_points_dict):
+                filtered_building_list.append[build]
+        return filtered_building_list
+
     def save_all_building_scan_dicts(self):
         for build in self.building_list:
             build_point_dict = pickle.dumps(build.per_scan_points_dict)
@@ -331,6 +348,6 @@ class ExtractBuildingData:
             unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(self.ds_voxel_leaf_size).points
             del curr_accum_points_frame_pcd
             del unobs_curr_accum_points_frame_pcd
-            
+
             if len(unobserved_curr_accum_points_frame) > 0:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
