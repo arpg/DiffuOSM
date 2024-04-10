@@ -29,6 +29,7 @@ class ExtractBuildingData:
         self.seq = seq
         self.near_path_threshold_latlon = 0.001     # Distance to do initial filter of buildings near path in lat-long
         self.min_num_points = 1000                  # Example criterion for each building
+        self.ds_voxel_leaf_size = 0.00001           # Voxel size for downsampling per frame
 
         self.PCProc = PointCloudProcessor()
 
@@ -302,29 +303,34 @@ class ExtractBuildingData:
         if os.path.exists(pc_frame_label_path):
             for hit_building in self.building_list:
                 if frame_num in hit_building.per_scan_points_dict_keys:
-                    per_scan_points_dict = self.get_building_scan_dict(hit_building.id)
-
                     # Update the building edges for the frame using the building edges
                     building_edges_frame.extend(edge.edge_vertices for edge in hit_building.edges)
 
                     # Update current frame's points
+                    per_scan_points_dict = self.get_building_scan_dict(hit_building.id)
                     # hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
                     # observed_points_frame.extend(hit_building_curr_obs_points)
 
                     # hit_building_total_accum_obs_points = hit_building.get_total_accum_obs_points(per_scan_points_dict)
                     # total_accum_points_frame.extend(hit_building_total_accum_obs_points)
 
-                    hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num, per_scan_points_dict)
-                    curr_accum_points_frame.extend(hit_building_curr_accum_obs_points)
-
-                    hit_building_curr_unobs_accum_points = hit_building.get_curr_accum_unobs_points(frame_num, per_scan_points_dict)
-                    if len(hit_building_curr_unobs_accum_points) > 0:
-                        unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
+                    curr_accum_points_frame.extend(hit_building.get_curr_accum_obs_points(frame_num, per_scan_points_dict))
+                    unobserved_curr_accum_points_frame.extend(hit_building.get_curr_accum_unobs_points(frame_num, per_scan_points_dict))
 
                     # # Only extract unobserved points if there are more total accumulated points than current accumulated points
                     # if len(hit_building_total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
                     #     hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
                     #     unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
+            
+            curr_accum_points_frame_pcd = o3d.geometry.PointCloud()
+            unobs_curr_accum_points_frame_pcd = o3d.geometry.PointCloud()
+            curr_accum_points_frame_pcd.points = o3d.utility.Vector3dVector(curr_accum_points_frame)
+            unobs_curr_accum_points_frame_pcd.points = o3d.utility.Vector3dVector(unobserved_curr_accum_points_frame)
 
+            curr_accum_points_frame = curr_accum_points_frame_pcd.voxel_down_sample(self.ds_voxel_leaf_size).points
+            unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(self.ds_voxel_leaf_size).points
+            del curr_accum_points_frame_pcd
+            del unobs_curr_accum_points_frame_pcd
+            
             if len(unobserved_curr_accum_points_frame) > 0:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
