@@ -311,16 +311,20 @@ class ExtractBuildingData:
                     # hit_building_curr_obs_points = hit_building.get_curr_obs_points(frame_num)
                     # observed_points_frame.extend(hit_building_curr_obs_points)
 
-                    hit_building_total_accum_obs_points = hit_building.get_total_accum_obs_points(per_scan_points_dict)
+                    # hit_building_total_accum_obs_points = hit_building.get_total_accum_obs_points(per_scan_points_dict)
                     # total_accum_points_frame.extend(hit_building_total_accum_obs_points)
 
                     hit_building_curr_accum_obs_points = hit_building.get_curr_accum_obs_points(frame_num, per_scan_points_dict)
                     curr_accum_points_frame.extend(hit_building_curr_accum_obs_points)
 
-                    # Only extract unobserved points if there are more total accumulated points than current accumulated points
-                    if len(hit_building_total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
-                        hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
+                    hit_building_curr_unobs_accum_points = hit_building.get_curr_accum_unobs_points(frame_num, per_scan_points_dict)
+                    if len(hit_building_curr_unobs_accum_points) > 0:
                         unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
+
+                    # # Only extract unobserved points if there are more total accumulated points than current accumulated points
+                    # if len(hit_building_total_accum_obs_points) > len(hit_building_curr_accum_obs_points):
+                    #     hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
+                    #     unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
 
             if len(unobserved_curr_accum_points_frame) > 0:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)

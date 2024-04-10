@@ -52,6 +52,16 @@ class OSMBuilding:
         total_accum_obs_points = np.copy(np.asarray(total_accum_flat).reshape(-1, 3))
         return total_accum_obs_points
 
+    def get_curr_accum_unobs_points(self, frame_num, per_scan_points_dict=None):
+        """
+        returns accumulated observed points of building up to and including the last scan which observed it.
+        """
+        if per_scan_points_dict is None: 
+            per_scan_points_dict = self.per_scan_points_dict
+        sub_dict = {current_frame: points for current_frame, points in per_scan_points_dict.items() if current_frame > frame_num}
+        curr_accum_unobs_flat = list(chain.from_iterable(sub_dict.values()))
+        return np.asarray(curr_accum_unobs_flat).reshape(-1, 3)
+    
     def get_curr_accum_obs_points(self, frame_num, per_scan_points_dict=None):
         """
         Returns accumulated observed points of building up to and including the {frame_num} scan.
