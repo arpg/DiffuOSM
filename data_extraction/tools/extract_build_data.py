@@ -250,7 +250,7 @@ class ExtractBuildingData:
             with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
                 for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
                     pbar.update(1)  # Update progress bar for each batch processed
-                    
+
         # ************************ No multi-processing *********************************
         # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
         # progress_bar = tqdm(total=num_frames, desc="            ")
@@ -297,15 +297,12 @@ class ExtractBuildingData:
                     #     hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
                     #     unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
             
-            curr_accum_points_frame_pcd = o3d.geometry.PointCloud()
-            unobs_curr_accum_points_frame_pcd = o3d.geometry.PointCloud()
-            curr_accum_points_frame_pcd.points = o3d.utility.Vector3dVector(curr_accum_points_frame)
-            unobs_curr_accum_points_frame_pcd.points = o3d.utility.Vector3dVector(unobserved_curr_accum_points_frame)
+            # Downsample frame's points (TODO: This would be better if we ds an accumulation of points and not per-frame)
+            curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(curr_accum_points_frame))
+            unobs_curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(unobserved_curr_accum_points_frame))
 
-            curr_accum_points_frame = curr_accum_points_frame_pcd.voxel_down_sample(self.ds_voxel_leaf_size).points
-            unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(self.ds_voxel_leaf_size).points
-            del curr_accum_points_frame_pcd
-            del unobs_curr_accum_points_frame_pcd
+            curr_accum_points_frame = curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
+            unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
 
             if len(unobserved_curr_accum_points_frame) > 0:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
