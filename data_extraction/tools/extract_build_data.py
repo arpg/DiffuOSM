@@ -28,7 +28,7 @@ class ExtractBuildingData:
         self.seq = seq
         self.near_path_threshold_latlon = 0.001     # Distance to do initial filter of buildings near path in lat-long
         self.min_num_points = 1000                  # Example criterion for each building
-        self.ds_voxel_leaf_size = 0.00001           # Voxel size for downsampling per frame
+        self.ds_voxel_leaf_size = 0.000001          # Voxel size for downsampling per frame
 
         self.PCProc = PointCloudProcessor()
 
