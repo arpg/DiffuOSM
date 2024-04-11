@@ -35,12 +35,6 @@ class ExtractBuildingData:
         self.setup_path_variables()
         self.initial_setup(frame_inc)
 
-        # self.initiate_extraction()
-        # self.extract_obs_and_accum_obs_points()     # Step 1
-        # self.save_all_obs_points()                  # Step 2
-        # # self.extract_and_save_unobs_points()      # Step 3
-        # self.conclude_extraction()
-
     def initial_setup(self, frame_inc):
         self.inc_frame = frame_inc                                          #
         self.init_frame, self.fin_frame = self.find_min_max_file_names(self.label_path)    #
