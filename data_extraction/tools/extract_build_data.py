@@ -155,6 +155,8 @@ class ExtractBuildingData:
         with time_block("           - merge_building_lists()"):
             self.building_list = self.merge_building_lists(results)
 
+        del frame_batches
+        del results
         del batches
 
         # ************************ No multi-processing *********************************
