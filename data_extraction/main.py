@@ -17,8 +17,8 @@ def main():
         seq_extract.conclude_extraction()
 
     for seq in seq_list:
-        seq_extract.initiate_extraction()
         seq_extract = ExtractBuildingData(seq, frame_inc)
+        seq_extract.initiate_extraction()
         seq_extract.extract_obs_and_accum_obs_points()
         seq_extract.save_all_obs_points()
         seq_extract.remove_saved_build_dicts()
