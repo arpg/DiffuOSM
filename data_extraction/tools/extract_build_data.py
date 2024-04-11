@@ -6,7 +6,6 @@ Refactor and clean.
         - For xyz, only need to convert OSM data to XYZ
         - for lat-long, need to convert each scan to lat-long
         * No matter what, TF of scan needs to happen.
-
     - Flip the points and OSM data - they are currently upside down
 '''
 
@@ -213,7 +212,7 @@ class ExtractBuildingData:
         for build in self.building_list:
             build_points_dict = os.path.join(self.extracted_per_frame_dir, f'{build.id}_build_point_dict.npy')
             if os.path.exists(build_points_dict):
-                filtered_building_list.append[build]
+                filtered_building_list.extend[build]
         return filtered_building_list
 
     def save_all_building_scan_dicts(self):
