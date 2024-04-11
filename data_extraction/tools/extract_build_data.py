@@ -212,6 +212,7 @@ class ExtractBuildingData:
         for build in self.building_list:
             build_points_dict = os.path.join(self.extracted_per_frame_dir, f'{build.id}_build_point_dict.npy')
             if os.path.exists(build_points_dict):
+                build.per_scan_points_dict_keys = list(self.get_building_scan_dict(build.id).keys())
                 filtered_building_list.append(build)
         return filtered_building_list
 
