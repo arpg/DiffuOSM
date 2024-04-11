@@ -35,11 +35,11 @@ class ExtractBuildingData:
         self.setup_path_variables()
         self.initial_setup(frame_inc)
 
-        self.initiate_extraction()
-        self.extract_obs_and_accum_obs_points()     # Step 1
-        self.save_all_obs_points()                  # Step 2
-        # self.extract_and_save_unobs_points()      # Step 3
-        self.conclude_extraction()
+        # self.initiate_extraction()
+        # self.extract_obs_and_accum_obs_points()     # Step 1
+        # self.save_all_obs_points()                  # Step 2
+        # # self.extract_and_save_unobs_points()      # Step 3
+        # self.conclude_extraction()
 
     def initial_setup(self, frame_inc):
         self.inc_frame = frame_inc                                          #
@@ -234,6 +234,12 @@ class ExtractBuildingData:
 
         return per_scan_points_dict
 
+    def remove_saved_build_dicts(self):
+        for build in self.building_list:
+            build_points_dict = os.path.join(self.extracted_per_frame_dir, f'{build.id}_build_point_dict.npy')
+            if os.path.exists(build_points_dict):
+                os.remove(build_points_dict)
+    
     '''
     STEP 2: So we dont need to repeat step 1.
     - This allows for us to optimize for faster method for unobserved extraction w/o needing to keep repeating step 1.
