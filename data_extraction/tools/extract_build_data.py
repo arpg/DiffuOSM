@@ -245,7 +245,7 @@ class ExtractBuildingData:
         batch_size = 50
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
 
-        with Pool(processes=3) as pool:
+        with Pool() as pool:
             # Process each batch in parallel, with tqdm for progress tracking
             with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
                 for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
