@@ -11,8 +11,11 @@ The only buildings here are building #95 and building #105 from sequence 5.
 '''
 
 import os
+from typing import Tuple
 import numpy as np
+import numpy.typing as npt
 import open3d as o3d
+
 
 try:
     if 'KITTI360_DATASET' in os.environ:
@@ -24,17 +27,52 @@ except KeyError as e:
     print("Set absolute path to where the directory for KITTI-360 dataset is. \nSet using \"export KITTI360_DATASET = <path/to/dataset>\"")
 
 
-def read_building_pc_file(file_path):
+def read_building_pc_file(file_path: str) -> npt.NDArray:
+    '''
+    Load point cloud from filepath and return properly shaped pointcloud
+
+    params:
+        file_path (str): Filepath to pointcloud file to read
+
+    returns:
+        point_cloud (npt.NDArray): Loaded and reshaped point cloud
+    '''
     point_cloud = np.fromfile(file_path)
     return point_cloud.reshape(-1, 3)
 
-def read_building_edges_file(building_edges_file):
+def read_building_edges_file(building_edges_file: str) -> npt.NDArray:
+    '''
+    Loads building edges from file and returns an arrya of edges
+
+    params:
+        building_edges_file (str): File path to load edges
+
+    returns:
+        edges (npt.NDArray): Array of edges
+    '''
     with open(building_edges_file, 'rb') as bin_file:
         edges_array = np.fromfile(bin_file, dtype=float).reshape(-1, 2, 3)  # Reshape to 3D array
     return edges_array
 
-def get_building_scan_pcd(seq, building_index):
-    per_building_dir = os.path.join(kitti360Path, 'data_3d_extracted', '2013_05_28_drive_%04d_sync' % seq, 'buildings/per_building')
+def get_building_scan_pcd(
+        seq: int,
+        building_index: int
+    ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray, npt.NDArray, npt.NDArray]: ## TODO I think this should probably be broken into smaller functions.
+    '''
+    Get all data (at the current timestep) for a given building
+
+    params:
+        seq (int): sequence number to pull data for
+        building_index (int): index for building to pull data for
+
+    returns:
+        build_points_pcd (npt.NDArray): pointcloud associated wiht building (for this scan)
+        build_edge_pcd (npt.NDArray): Array of edges
+        build_points_accum_pcd (npt.NDArray): Accumulate point cloud associated with building
+        build_points_diff_pcd (npt.NDArray): ## TODO Not sure what this is suppose to be
+        build_edges_span (npt.NDArray): Some sort of distance to each edge? ## TODO fill this in
+    '''
+    per_building_dir = os.path.join(kitti360Path, 'data_3d_extracted', '2013_05_28_drive_%04d_sync' % seq, 'buildings/per_building') ## TODO use f-strings instead of % operator
     per_build_edges_file = os.path.join(per_building_dir, f'build_{building_index}_edges.bin', )
     per_build_file = os.path.join(per_building_dir, f'build_{building_index}_scan_{scan_num}.bin', )
     per_build_accum_file = os.path.join(per_building_dir, f'build_{building_index}_accum.bin' )
@@ -76,7 +114,17 @@ def get_building_scan_pcd(seq, building_index):
 
     return build_points_pcd, build_edges_pcd, build_points_accum_pcd, build_points_diff_pcd, build_edges_span
 
-def get_max_scan_for_build(seq, building_index):
+def get_max_scan_for_build(seq: int, building_index: int) -> int: ## TODO THis coul probably be implemented using os.listdirs and parse the number instead of a loop.
+    '''
+    Parses through all scans within a sequences to find the last scan corresponding to a particular building
+
+    params:
+        seq (int): sequence number to pull data for
+        building_index (int): index for building to pull data for
+
+    returns:
+        max_scan (int): index of maximum scan 
+    '''
     per_building_dir = os.path.join(kitti360Path, 'data_3d_extracted', '2013_05_28_drive_%04d_sync' % seq, 'buildings/per_building')
     max_scan = 1
     while True:
@@ -88,7 +136,17 @@ def get_max_scan_for_build(seq, building_index):
 
     return max_scan
 
-def change_frame(vis, key_code):
+def change_frame(vis, key_code): ## TODO Fix typing
+    '''
+    Changes the data currently visualized to the next frame
+
+    params:
+        vis (): o3d visualization object
+        key_code (): key code? ## TODO not sure about this
+
+    returns:
+        bool ## TODO might be okay to get rid of return here. If there is no meaning behind this turth value
+    '''
     global scan_num
     global building_index
     global seq
