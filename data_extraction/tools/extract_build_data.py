@@ -198,9 +198,7 @@ class ExtractBuildingData:
         # The total_accum file for this frame does not exist, extraction will continue
         new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
         if new_pcd is not None:
-            transformation_matrix = self.velodyne_poses.get(frame_num)
-            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-            pos_latlong = trans_matrix_oxts[:3]
+            pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
             calc_points_within_build_poly(frame_num, building_list, new_pcd, pos_latlong, self.near_path_threshold_latlon)
 
     def filter_hit_building_list(self):
@@ -312,9 +310,7 @@ class ExtractBuildingData:
             unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
 
             # Center DS frame about robot lidar
-            transformation_matrix = self.velodyne_poses.get(frame_num)
-            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-            pos_latlong = trans_matrix_oxts[:3]
+            pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
             building_edges_frame = np.asarray(building_edges_frame) - pos_latlong
             unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame) - pos_latlong
             curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
