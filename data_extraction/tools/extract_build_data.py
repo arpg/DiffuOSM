@@ -9,6 +9,7 @@ Refactor and clean.
     - Flip the points and OSM data - they are currently upside down
 '''
 
+# External
 import os
 import glob
 import numpy as np
