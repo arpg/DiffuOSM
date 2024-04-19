@@ -80,16 +80,16 @@ class ExtractBuildingData:
         """
         if not os.path.exists(self.velodyne_poses_file):
             self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, save_to_file=False)
-        self.velodyne_poses = read_vel_poses(self.velodyne_poses_file) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
-
-    def get_imu_poses_lat_long(self):
-        '''
-        Below is used to get xyz_positions to do initial filter of buildings to be near traveled path.
-        self.xyz_positions is used later in filter_and_discretize_building_edges().
-        '''
-        if not os.path.exists(self.oxts_pose_file_path):
-            convert_and_save_oxts_poses(self.imu_poses_file, self.oxts_pose_file_path)
-        xyz_point_clouds, self.xyz_positions = get_pointcloud_from_txt(self.oxts_pose_file_path)
+        self.velodyne_poses, self.velodyne_poses_latlon = read_vel_poses(self.velodyne_poses_file) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
+    
+    # def get_imu_poses_lat_long(self):
+    #     '''
+    #     Below is used to get xyz_positions to do initial filter of buildings to be near traveled path.
+    #     self.xyz_positions is used later in filter_and_discretize_building_edges().
+    #     '''
+    #     if not os.path.exists(self.oxts_pose_file_path):
+    #         convert_and_save_oxts_poses(self.imu_poses_file, self.oxts_pose_file_path)
+    #     xyz_point_clouds, self.xyz_positions = get_pointcloud_from_txt(self.oxts_pose_file_path)
 
     '''
     STEP 1: Extract observed building points from each frame and filter the buildings.
@@ -98,7 +98,7 @@ class ExtractBuildingData:
         print("\n     - Step 1) Extracting observed points from each frame.")
 
         # Initial filter of OSM buildings via boundary around IMU path in lat-long
-        self.building_list = get_buildings_near_poses(self.osm_file_path, self.xyz_positions, self.near_path_threshold_latlon)
+        self.building_list = get_buildings_near_poses(self.osm_file_path, self.velodyne_poses_latlon, self.near_path_threshold_latlon)
         
         # Building point extraction
         path_pattern = os.path.join(self.extracted_per_frame_dir, '*_build_point_dict.npy')

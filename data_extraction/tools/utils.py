@@ -23,11 +23,12 @@ import tools.osm_building as osm_building
 from tools.convert_oxts_pose import *
 
 min_vert_list = []
-def building_within_bounds(building_vertex, xyz_positions, threshold):
+def building_within_bounds(building_vertex, velodyne_poses_latlon, threshold):
     vert_dist_arr = []
     building_vertex = np.array(building_vertex)
 
-    for pos in xyz_positions:
+    for pos in velodyne_poses_latlon.values():
+        pos = pos[:3]       # Only use lat-lon-alt
         # pos[0] = pos[1]
         # pos[1] = pos[0]
         vert_dist = np.sqrt((pos[1] - building_vertex[0])*(pos[1] - building_vertex[0])+(pos[0] - building_vertex[1])*(pos[0] - building_vertex[1]))
@@ -92,7 +93,7 @@ def get_all_osm_buildings(osm_file_path):
             building_id += 1
     return building_list
 
-def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
+def get_buildings_near_poses(osm_file_path, velodyne_poses_latlon, threshold_dist):
     building_features = ox.features_from_xml(osm_file_path, tags={'building': True})
     building_list = []
     building_lines = []
@@ -101,7 +102,7 @@ def get_buildings_near_poses(osm_file_path, xyz_positions, threshold_dist):
         if building.geometry.geom_type == 'Polygon':
             exterior_coords = building.geometry.exterior.coords
             # Check if first building vertex is within path
-            if building_within_bounds(exterior_coords[0], xyz_positions, threshold_dist): 
+            if building_within_bounds(exterior_coords[0], velodyne_poses_latlon, threshold_dist): 
                 per_building_lines = []
                 for i in range(len(exterior_coords) - 1):
                     start_point = [exterior_coords[i][1], exterior_coords[i][0], 0]
@@ -387,18 +388,18 @@ o3d_processor.py
 
 '''
 
-def get_pointcloud_from_txt(file_path):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
+# def get_pointcloud_from_txt(file_path):
+#     with open(file_path, 'r') as file:
+#         lines = file.readlines()
 
-    xyz_positions = []
-    for line in lines:
-        matrix_elements = np.array(line.split(), dtype=float)
-        x, y = matrix_elements[0], matrix_elements[1]
-        xyz_positions.append([x, y, 0])
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(xyz_positions)
-    return pcd, xyz_positions
+#     xyz_positions = []
+#     for line in lines:
+#         matrix_elements = np.array(line.split(), dtype=float)
+#         x, y = matrix_elements[0], matrix_elements[1]
+#         xyz_positions.append([x, y, 0])
+#     pcd = o3d.geometry.PointCloud()
+#     pcd.points = o3d.utility.Vector3dVector(xyz_positions)
+#     return pcd, xyz_positions
 
 def get_circle_pcd(center, radius, num_points=30):
     """
@@ -607,16 +608,16 @@ def load_and_visualize(raw_pc_path, label_path, velodyne_poses, frame_num, label
 
     return colored_pcd
 
-def load_xyz_positions(file_path):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
+# def load_xyz_positions(file_path):
+#     with open(file_path, 'r') as file:
+#         lines = file.readlines()
 
-    xyz_positions = []
-    for line in lines:
-        matrix_elements = np.array(line.split(), dtype=float)
-        x, y = matrix_elements[0], matrix_elements[1]
-        xyz_positions.append([x, y, 0])
-    return xyz_positions
+#     xyz_positions = []
+#     for line in lines:
+#         matrix_elements = np.array(line.split(), dtype=float)
+#         x, y = matrix_elements[0], matrix_elements[1]
+#         xyz_positions.append([x, y, 0])
+#     return xyz_positions
 
 def create_point_clouds_from_xyz(xyz_positions):
     point_clouds = []
@@ -757,7 +758,8 @@ def get_accum_pc(init_frame, fin_frame, inc_frame, raw_pc_path, label_path, velo
     return merged_pcd
 
 def read_vel_poses(file_path):
-    transformation_matrices = {}
+    velodyne_poses_xyz = {}
+    velodyne_poses_latlon = {}
 
     with open(file_path, 'r') as file:
         for line in file:
@@ -775,9 +777,9 @@ def read_vel_poses(file_path):
                 matrix_4x4 = np.vstack([matrix_3x4, np.array([0, 0, 0, 1])])
 
             # Store the matrix using the frame index as the key
-            transformation_matrices[frame_index] = matrix_4x4
-
-    return transformation_matrices
+            velodyne_poses_xyz[frame_index] = matrix_4x4
+            velodyne_poses_latlon[frame_index] = np.asarray(convertPoseToOxts(matrix_4x4))
+    return velodyne_poses_xyz, velodyne_poses_latlon
 
 # def transform_point_cloud(pc, transformation_matrices, frame_number):
 #     if frame_number >= len(transformation_matrices):
