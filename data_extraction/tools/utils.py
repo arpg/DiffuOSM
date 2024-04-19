@@ -283,10 +283,6 @@ def save_per_scan_data(extracted_per_frame_dir, frame_num, building_edges_frame,
 #def save_per_scan_obs_data(extracted_per_frame_dir, frame_num, building_edges_frame, observed_points_frame, curr_accum_points_frame, total_accum_points_frame):
     """
     """
-    building_edges_frame = np.asarray(building_edges_frame)
-    curr_accum_points_frame = np.asarray(curr_accum_points_frame)
-    unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame)
-
     # Save all edges from buildings that were observed in current scan
     # frame_build_edges_file = os.path.join(extracted_per_frame_dir, f'{frame_num:010d}_build_edges.bin')
     # with open(frame_build_edges_file, 'wb') as bin_file:

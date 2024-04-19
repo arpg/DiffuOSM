@@ -316,9 +316,11 @@ class ExtractBuildingData:
             transformation_matrix = self.velodyne_poses.get(frame_num)
             trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
             pos_latlong = trans_matrix_oxts[:3]
-            
-            # Test the mean of the points in this frame
+            building_edges_frame = np.asarray(building_edges_frame) - pos_latlong
+            unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame) - pos_latlong
             curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
+
+            # Test the mean of the points in this frame
             print(f"Mean lat: {np.mean(curr_accum_points_frame[:,0])}, Mean lon: {np.mean(curr_accum_points_frame[:,1])}")
 
             if len(unobserved_curr_accum_points_frame) > 0:
