@@ -318,9 +318,7 @@ class ExtractBuildingData:
             pos_latlong = trans_matrix_oxts[:3]
             
             # Test the mean of the points in this frame
-            curr_accum_points_frame = np.asarray(curr_accum_points_frame)
-            print(f"curr_accum_points_frame: {curr_accum_points_frame}")
-            # print(f"curr_accum_points_frame[0]: {curr_accum_points_frame[0]}, curr_accum_points_frame[1]: {curr_accum_points_frame[1]}")
+            curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
             print(f"Mean lat: {np.mean(curr_accum_points_frame[:,0])}, Mean lon: {np.mean(curr_accum_points_frame[:,1])}")
 
             if len(unobserved_curr_accum_points_frame) > 0:
