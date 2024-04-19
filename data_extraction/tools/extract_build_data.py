@@ -12,10 +12,9 @@ Refactor and clean.
 import os
 import glob
 import numpy as np
-from datetime import datetime, timedelta
-
-from multiprocessing import Manager, Pool
-from copy import copy, deepcopy
+from datetime import datetime
+from multiprocessing import Pool
+from copy import copy
 
 # Internal imports
 from tools.labels import labels
@@ -321,7 +320,7 @@ class ExtractBuildingData:
             curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
 
             # Test the mean of the points in this frame
-            print(f"Mean lat: {np.mean(curr_accum_points_frame[:,0])}, Mean lon: {np.mean(curr_accum_points_frame[:,1])}")
+            # print(f"Mean lat: {np.mean(curr_accum_points_frame[:,0])}, Mean lon: {np.mean(curr_accum_points_frame[:,1])}")
 
             if len(unobserved_curr_accum_points_frame) > 0:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
