@@ -281,7 +281,7 @@ class ExtractBuildingData:
         building_edges_frame = []
         curr_accum_points_frame = []
         unobserved_curr_accum_points_frame = []
-hhhhhhhhhh
+
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
         if os.path.exists(pc_frame_label_path):
             for hit_building in self.building_list:
@@ -311,6 +311,14 @@ hhhhhhhhhh
 
             curr_accum_points_frame = curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
             unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
+
+            # Center DS frame about robot lidar
+            transformation_matrix = self.velodyne_poses.get(frame_num)
+            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
+            pos_latlong = trans_matrix_oxts[:3]
+            
+            # Test the mean of the points in this frame
+            print(f"Mean lat: {np.mean(curr_accum_points_frame[0])}, Mean lon: {np.mean(curr_accum_points_frame[1])}")
 
             if len(unobserved_curr_accum_points_frame) > 0:
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
