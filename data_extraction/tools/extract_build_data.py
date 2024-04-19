@@ -130,9 +130,13 @@ class ExtractBuildingData:
 
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        batch_size = 50
+        batch_size = 100
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
         
+        # TODO: Maybe pass in offset polys as a seperate list!
+        # self.building_polygons = [Polygon(building.offset_vertices) for building in building_list]
+        # building_list = copy(self.building_list)
+
         # Create a batch list containing frame numbers and a copy of building_list for each batch
         batches = [(frame_batch, copy(self.building_list)) for frame_batch in frame_batches]
 
@@ -146,12 +150,13 @@ class ExtractBuildingData:
                     pbar.update(1)  # Update progress bar for each batch processed
         
         # Merge or recombine results from each batch
+        print("         - Merging lists now:")
         with time_block("           - merge_building_lists()"):
             self.building_list = self.merge_building_lists(results)
 
-        del frame_batches
-        del results
-        del batches
+        # del frame_batches
+        # del results
+        # del batches
 
         # ************************ No multi-processing *********************************
         # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
@@ -185,6 +190,7 @@ class ExtractBuildingData:
     def process_batch(self, batch):
         batch_of_scans, building_list = batch
         # Directly use self.shared_building_list here
+
         for scan_num in batch_of_scans:
             self.extract_per_scan_total_accum_obs_points(scan_num, building_list)
         return building_list
@@ -244,10 +250,10 @@ class ExtractBuildingData:
         print("\n     - Step 2) Saving observed points from each frame.")
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        batch_size = 5
+        batch_size = 50
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
 
-        with Pool() as pool:
+        with Pool(processes=5) as pool:
             # Process each batch in parallel, with tqdm for progress tracking
             with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
                 for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
@@ -275,7 +281,7 @@ class ExtractBuildingData:
         building_edges_frame = []
         curr_accum_points_frame = []
         unobserved_curr_accum_points_frame = []
-
+hhhhhhhhhh
         pc_frame_label_path = os.path.join(self.label_path, f'{frame_num:010d}.bin')
         if os.path.exists(pc_frame_label_path):
             for hit_building in self.building_list:
