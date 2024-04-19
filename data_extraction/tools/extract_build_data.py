@@ -317,8 +317,8 @@ class ExtractBuildingData:
             print("unobs")
             unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame) - pos_latlong
             print("curr")
+            print(f"len_curr: {len(np.asarray(curr_accum_points_frame))}")
             curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
-
             # Test the mean of the points in this frame
             # print(f"Mean lat: {np.mean(curr_accum_points_frame[:,0])}, Mean lon: {np.mean(curr_accum_points_frame[:,1])}")
 
