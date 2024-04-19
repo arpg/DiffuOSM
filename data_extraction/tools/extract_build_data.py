@@ -39,7 +39,7 @@ class ExtractBuildingData:
         self.init_frame, self.fin_frame = self.find_min_max_file_names(self.label_path)    #
         self.labels_dict = {label.id: label.color for label in labels}      #
         self.get_velo_poses()                                               #
-        self.get_imu_poses_lat_long()                                       # For initial filtering of building points along path
+        # self.get_imu_poses_lat_long()                                       # For initial filtering of building points along path
 
     # TODO: Rename below 'paths' to directories 'dir'
     def setup_path_variables(self):
