@@ -312,8 +312,11 @@ class ExtractBuildingData:
 
             # Center DS frame about robot lidar
             pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
+            print("build")
             building_edges_frame = np.asarray(building_edges_frame) - pos_latlong
+            print("unobs")
             unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame) - pos_latlong
+            print("curr")
             curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
 
             # Test the mean of the points in this frame
