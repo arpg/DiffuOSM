@@ -303,22 +303,17 @@ class ExtractBuildingData:
                     #     hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
                     #     unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
             
-            # Downsample frame's points (TODO: This would be better if we ds an accumulation of points and not per-frame)
-            curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(curr_accum_points_frame))
-            unobs_curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(unobserved_curr_accum_points_frame))
-
-            curr_accum_points_frame = curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
-            unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
-
-            # Center DS frame about robot lidar
-            pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
-            print(f"\n-------------\n\nbuild_edges array[:][:] : {np.asarray(building_edges_frame)[:][:]}")
-            print(f"curr_accum_points_frame : {np.asarray(curr_accum_points_frame)}")
-            building_edges_frame = np.asarray(building_edges_frame) - pos_latlong
-            unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame) - pos_latlong
-            curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
-            # Test the mean of the points in this frame
-            # print(f"Mean lat: {np.mean(curr_accum_points_frame[:,0])}, Mean lon: {np.mean(curr_accum_points_frame[:,1])}")
-
             if len(unobserved_curr_accum_points_frame) > 0:
+                # Downsample frame's observed and unobs (GT) points (TODO: This would be better if we ds an accumulation of points and not per-frame)
+                curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(curr_accum_points_frame))
+                unobs_curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(unobserved_curr_accum_points_frame))
+                curr_accum_points_frame = curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
+                unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
+
+                # Center frame's points and building edges about current lidar pos
+                pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
+                building_edges_frame = np.asarray(building_edges_frame) - pos_latlong
+                unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame) - pos_latlong
+                curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
+
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
