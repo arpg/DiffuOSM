@@ -312,7 +312,7 @@ class ExtractBuildingData:
 
                 # Center frame's points and building edges about current lidar pos
                 pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
-                pos_latlong[:,2] = 0
+                pos_latlong[2] = 0
                 building_edges_frame = np.asarray(building_edges_frame) - pos_latlong
                 unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame) - pos_latlong
                 curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
