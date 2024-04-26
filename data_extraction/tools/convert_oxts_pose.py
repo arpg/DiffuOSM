@@ -174,7 +174,7 @@ def convertPoseToOxts(pose):
     # R  = Rz*Ry*Rx
         
     # add oxts 
-    oxts.append([lat, lon, alt, roll, pitch, yaw])
+    oxts.append([lon, lat, alt, roll, pitch, yaw])
   
   if single_value:
     oxts = oxts[0]
@@ -235,7 +235,7 @@ def convertPointsToOxts(pose):
     # R  = Rz*Ry*Rx
         
     # add oxts 
-    oxts.append([lat, lon, alt, roll, pitch, yaw])
+    oxts.append([lon, lat, alt, roll, pitch, yaw])
   
 #   if single_value:
 #     oxts = oxts[0]
