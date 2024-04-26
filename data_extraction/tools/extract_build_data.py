@@ -248,7 +248,7 @@ class ExtractBuildingData:
         print("\n     - Step 2) Saving observed points from each frame.")
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        batch_size = 50
+        batch_size = 100
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
 
         with Pool(processes=5) as pool:
