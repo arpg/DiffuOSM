@@ -37,20 +37,6 @@ def building_within_bounds(building_vertex, xyz_positions, threshold):
 
     return min_vert_dist <= threshold
 
-# TODO: Use this and fix how osm data is flipped
-# def get_all_osm_buildings(osm_file_path):
-#     buildings = ox.geometries_from_xml(osm_file_path, tags={'building': True})
-#     # Process Buildings as LineSets
-#     building_lines = []
-#     for _, building in buildings.iterrows():
-#         if building.geometry.type == 'Polygon':
-#             exterior_coords = building.geometry.exterior.coords
-#             for i in range(len(exterior_coords) - 1):
-#                 start_point = [exterior_coords[i][0], exterior_coords[i][1], 0]
-#                 end_point = [exterior_coords[i + 1][0], exterior_coords[i + 1][1], 0]
-#                 building_lines.append([start_point, end_point])
-#     return building_list
-
 def find_file_max_value(dir_path):
     pattern = os.path.join(dir_path, '*.msgpack')
     files = glob.glob(pattern)
@@ -508,10 +494,6 @@ def color_point_cloud(points, labels, labels_dict):
             continue  # Skip invalid labels
 
         color = labels_dict.get(label, (0, 0, 0))  # Default color is black
-
-        # if (pc[i, 0] < 0 and color != (0,0,0)):
-        #     print(f"{pc[i, :3]} iter: {i}, color: {color}")
-        #     color = (255, 0, 0)
 
         colored_points[i] = np.array(color) / 255.0  # Normalize to [0, 1] for Open3D
     return colored_points
