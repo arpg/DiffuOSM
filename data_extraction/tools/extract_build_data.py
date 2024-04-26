@@ -9,13 +9,13 @@ Refactor and clean.
     - Flip the points and OSM data - they are currently upside down
 '''
 
+# External
 import os
 import glob
 import numpy as np
-from datetime import datetime, timedelta
-
-from multiprocessing import Manager, Pool
-from copy import copy, deepcopy
+from datetime import datetime
+from multiprocessing import Pool
+from copy import copy
 
 # Internal imports
 from tools.labels import labels
@@ -40,7 +40,7 @@ class ExtractBuildingData:
         self.init_frame, self.fin_frame = self.find_min_max_file_names(self.label_path)    #
         self.labels_dict = {label.id: label.color for label in labels}      #
         self.get_velo_poses()                                               #
-        self.get_imu_poses_lat_long()                                       # For initial filtering of building points along path
+        # self.get_imu_poses_lat_long()                                       # For initial filtering of building points along path
 
     # TODO: Rename below 'paths' to directories 'dir'
     def setup_path_variables(self):
@@ -81,16 +81,16 @@ class ExtractBuildingData:
         """
         if not os.path.exists(self.velodyne_poses_file):
             self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, save_to_file=False)
-        self.velodyne_poses = read_vel_poses(self.velodyne_poses_file) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
-
-    def get_imu_poses_lat_long(self):
-        '''
-        Below is used to get xyz_positions to do initial filter of buildings to be near traveled path.
-        self.xyz_positions is used later in filter_and_discretize_building_edges().
-        '''
-        if not os.path.exists(self.oxts_pose_file_path):
-            convert_and_save_oxts_poses(self.imu_poses_file, self.oxts_pose_file_path)
-        xyz_point_clouds, self.xyz_positions = get_pointcloud_from_txt(self.oxts_pose_file_path)
+        self.velodyne_poses, self.velodyne_poses_latlon = read_vel_poses(self.velodyne_poses_file) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
+    
+    # def get_imu_poses_lat_long(self):
+    #     '''
+    #     Below is used to get xyz_positions to do initial filter of buildings to be near traveled path.
+    #     self.xyz_positions is used later in filter_and_discretize_building_edges().
+    #     '''
+    #     if not os.path.exists(self.oxts_pose_file_path):
+    #         convert_and_save_oxts_poses(self.imu_poses_file, self.oxts_pose_file_path)
+    #     xyz_point_clouds, self.xyz_positions = get_pointcloud_from_txt(self.oxts_pose_file_path)
 
     '''
     STEP 1: Extract observed building points from each frame and filter the buildings.
@@ -99,7 +99,7 @@ class ExtractBuildingData:
         print("\n     - Step 1) Extracting observed points from each frame.")
 
         # Initial filter of OSM buildings via boundary around IMU path in lat-long
-        self.building_list = get_buildings_near_poses(self.osm_file_path, self.xyz_positions, self.near_path_threshold_latlon)
+        self.building_list = get_buildings_near_poses(self.osm_file_path, self.velodyne_poses_latlon, self.near_path_threshold_latlon)
         
         # Building point extraction
         path_pattern = os.path.join(self.extracted_per_frame_dir, '*_build_point_dict.npy')
@@ -130,9 +130,13 @@ class ExtractBuildingData:
 
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        batch_size = 50
+        batch_size = 100
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
         
+        # TODO: Maybe pass in offset polys as a seperate list!
+        # self.building_polygons = [Polygon(building.offset_vertices) for building in building_list]
+        # building_list = copy(self.building_list)
+
         # Create a batch list containing frame numbers and a copy of building_list for each batch
         batches = [(frame_batch, copy(self.building_list)) for frame_batch in frame_batches]
 
@@ -146,12 +150,13 @@ class ExtractBuildingData:
                     pbar.update(1)  # Update progress bar for each batch processed
         
         # Merge or recombine results from each batch
+        print("         - Merging lists now:")
         with time_block("           - merge_building_lists()"):
             self.building_list = self.merge_building_lists(results)
 
-        del frame_batches
-        del results
-        del batches
+        # del frame_batches
+        # del results
+        # del batches
 
         # ************************ No multi-processing *********************************
         # num_frames = len(range(self.init_frame, self.fin_frame + 1, self.inc_frame))
@@ -185,6 +190,7 @@ class ExtractBuildingData:
     def process_batch(self, batch):
         batch_of_scans, building_list = batch
         # Directly use self.shared_building_list here
+
         for scan_num in batch_of_scans:
             self.extract_per_scan_total_accum_obs_points(scan_num, building_list)
         return building_list
@@ -193,9 +199,7 @@ class ExtractBuildingData:
         # The total_accum file for this frame does not exist, extraction will continue
         new_pcd = load_and_visualize(self.raw_pc_path, self.label_path, self.velodyne_poses, frame_num, self.labels_dict)
         if new_pcd is not None:
-            transformation_matrix = self.velodyne_poses.get(frame_num)
-            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-            pos_latlong = trans_matrix_oxts[:3]
+            pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
             calc_points_within_build_poly(frame_num, building_list, new_pcd, pos_latlong, self.near_path_threshold_latlon)
 
     def filter_hit_building_list(self):
@@ -244,10 +248,10 @@ class ExtractBuildingData:
         print("\n     - Step 2) Saving observed points from each frame.")
         # Create batches of frame numbers
         frame_nums = range(self.init_frame, self.fin_frame + 1, self.inc_frame)
-        batch_size = 5
+        batch_size = 100
         frame_batches = [frame_nums[i:i + batch_size] for i in range(0, len(frame_nums), batch_size)]
 
-        with Pool() as pool:
+        with Pool(processes=5) as pool:
             # Process each batch in parallel, with tqdm for progress tracking
             with tqdm(total=len(frame_batches), desc="            Processing batches") as pbar:
                 for _ in pool.imap_unordered(self.save_per_scan_obs_points_wrapper, frame_batches):
@@ -299,12 +303,18 @@ class ExtractBuildingData:
                     #     hit_building_curr_unobs_accum_points = self.PCProc.remove_overlapping_points(hit_building_total_accum_obs_points, hit_building_curr_accum_obs_points)
                     #     unobserved_curr_accum_points_frame.extend(hit_building_curr_unobs_accum_points)
             
-            # Downsample frame's points (TODO: This would be better if we ds an accumulation of points and not per-frame)
-            curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(curr_accum_points_frame))
-            unobs_curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(unobserved_curr_accum_points_frame))
-
-            curr_accum_points_frame = curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
-            unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
-
             if len(unobserved_curr_accum_points_frame) > 0:
+                # Downsample frame's observed and unobs (GT) points (TODO: This would be better if we ds an accumulation of points and not per-frame)
+                curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(curr_accum_points_frame))
+                unobs_curr_accum_points_frame_pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(unobserved_curr_accum_points_frame))
+                curr_accum_points_frame = curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
+                unobserved_curr_accum_points_frame = unobs_curr_accum_points_frame_pcd.voxel_down_sample(voxel_size=self.ds_voxel_leaf_size).points
+
+                # Center frame's points and building edges about current lidar pos
+                pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
+                pos_latlong[2] = 0
+                building_edges_frame = np.asarray(building_edges_frame) - pos_latlong
+                unobserved_curr_accum_points_frame = np.asarray(unobserved_curr_accum_points_frame) - pos_latlong
+                curr_accum_points_frame = np.asarray(curr_accum_points_frame) - pos_latlong
+
                 save_per_scan_data(self.extracted_per_frame_dir, frame_num, building_edges_frame, curr_accum_points_frame, unobserved_curr_accum_points_frame)
