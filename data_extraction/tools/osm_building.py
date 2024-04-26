@@ -9,6 +9,9 @@ class OSMBuildingEdge:
         self.expanded_vertices = []
         self.times_hit = 0
 
+# class OSMRoad:
+#     def __init__(self, building_lines, building_id, offset_distance = 0.000008):
+
 # TODO: Represent OSM buildings in lat-long and XYZ
 class OSMBuilding:
     def __init__(self, building_lines, building_id, offset_distance = 0.000008):
