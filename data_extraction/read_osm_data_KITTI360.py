@@ -243,7 +243,7 @@ def convert_OSM_list_to_o3d_rect(osm_list, rgb_color):
     for road_line in osm_list:
         start_point = np.array(road_line['start_point'])
         end_point = np.array(road_line['end_point'])
-        width = np.float64(road_line['width'])/(63781.37/2.0)   # Need to make sure width is not a string and Need to convert the points to latlon
+        width = np.float64(road_line['width'])/(63781.37/2.0)   # TODO: Need to make sure width is not a string and Need to convert the points to latlon
 
         # Compute the unit vector perpendicular to the line segment
         line_vec = end_point - start_point
