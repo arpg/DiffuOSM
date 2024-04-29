@@ -8,8 +8,8 @@ import glob
 import numpy as np
 import open3d as o3d
 import osmnx as ox
-from sklearn.neighbors import KDTree as sklearnKDTree
-from scipy.spatial import KDTree as scipyKDTree
+# from sklearn.neighbors import KDTree as sklearnKDTree
+# from scipy.spatial import KDTree as scipyKDTree
 from scipy.spatial import cKDTree
 from shapely.geometry import Polygon, Point
 import pickle
