@@ -59,7 +59,7 @@ class ExtractBuildingData:
         """
         if not os.path.exists(self.velodyne_poses_file):
             self.velodyne_poses = get_trans_poses_from_imu_to_velodyne(self.imu_poses_file, self.velodyne_poses_file, save_to_file=False)
-        self.velodyne_poses = read_vel_poses(self.velodyne_poses_file) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
+        self.velodyne_poses, self.velodyne_poses_latlon = read_vel_poses(self.velodyne_poses_file) # TODO: Why is read_vel_poses different from read_poses? (see get() in utils/get_transformed_point_cloud -> would like to use read_poses() instead of read_vel_poses())
     
     def get_pointcloud_pcd(self, raw_pc_frame_path, pc_frame_label_path, frame_num):
         pc = read_bin_file(raw_pc_frame_path)
@@ -110,10 +110,7 @@ class ExtractBuildingData:
         raw_pc_frame_path = os.path.join(self.raw_pc_path, f'{frame_num:010d}.bin')
         if os.path.exists(pc_frame_label_path):
             colored_pcd = self.get_pointcloud_pcd(raw_pc_frame_path, pc_frame_label_path, frame_num)
-
-            transformation_matrix = self.velodyne_poses.get(frame_num)
-            trans_matrix_oxts = np.asarray(convertPoseToOxts(transformation_matrix))
-            pos_latlong = trans_matrix_oxts[:3]
+            pos_latlong = self.velodyne_poses_latlon.get(frame_num)[:3]
 
             # # Filter buildings and Roads
             # filtered_building_list = get_roads_near_current_pose()
@@ -128,15 +125,16 @@ class ExtractBuildingData:
             # for road in filtered_road_list:
 
             osm_buildings_list = get_osm_buildings_list(self.osm_file_path, pos_latlong, self.near_path_threshold_latlon)
-            osm_roads_list = get_osm_roads_list(self.osm_file_path, pos_latlong, self.near_path_threshold_latlon)
+            osm_roads_list = get_osm_roads_list_new(self.osm_file_path, pos_latlong, self.near_path_threshold_latlon)
 
             # Now only include road and building segements that fall very near labeled road/building points when they are flattened
             # Implement here
             # Use class OSMRoad/OSMBuilding
 
-            osm_buildings_o3d = 
-            osm_roads_o3d = 
-            o3d.visualization.draw_geometries([colored_pcd, osm_buildings, osm_roads])
+            osm_buildings_o3d = building_list_to_o3d_lineset(osm_buildings_list)
+            osm_roads_o3d = convert_OSM_list_to_o3d(osm_roads_list, [1, 0, 0])
+            osm_roads_o3d_rect = convert_OSM_list_to_o3d_rect(osm_roads_list, [1, 0.5, 0])
+            o3d.visualization.draw_geometries([colored_pcd, osm_buildings_o3d, osm_roads_o3d, osm_roads_o3d_rect])
 
 
 def calc_points_within_build_poly(frame_num, building_list, point_cloud_3D, pos_latlong, near_path_threshold):
@@ -194,17 +192,6 @@ def get_gnss_data_pcd(file_path, color_array):
     return gnss_data_points_pcd
 
 
-def convert_OSM_list_to_o3d(osm_list, rgb_color):
-    osm_lines = 
-    osm_line_set = o3d.geometry.LineSet()
-    osm_points = [point for line in osm_lines for point in line]
-    osm_lines_idx = [[i, i + 1] for i in range(0, len(osm_points), 2)]
-    osm_line_set.points = o3d.utility.Vector3dVector(osm_points)
-    osm_line_set.lines = o3d.utility.Vector2iVector(osm_lines_idx)
-    osm_line_set.paint_uniform_color(rgb_color)
-    return osm_line_set
-    
-
 def building_near_pose(building_vertex, pos, threshold):
     building_vertex = np.array(building_vertex)
     vert_dist = np.sqrt((pos[0] - building_vertex[0])*(pos[0] - building_vertex[0])+(pos[1] - building_vertex[1])*(pos[1] - building_vertex[1]))
@@ -222,7 +209,6 @@ def get_osm_buildings_list(osm_file_path, pos_lat_lon, threshold_dist):
         if building.geometry.type == 'Polygon':
             exterior_coords = building.geometry.exterior.coords
             build_center = [np.mean(np.array(exterior_coords)[:, 0]), np.mean(np.array(exterior_coords)[:, 1])]
-            print(f'pos_lat_lon: {pos_lat_lon},  build_center: {build_center}')
             if building_near_pose(build_center, np.asarray(pos_lat_lon), threshold_dist):
                 per_building_lines = []
                 for i in range(len(exterior_coords) - 1):
@@ -236,31 +222,159 @@ def get_osm_buildings_list(osm_file_path, pos_lat_lon, threshold_dist):
     return building_list
 
 
+def convert_OSM_list_to_o3d_rect(osm_list, rgb_color):
+    # Initialize the LineSet object
+    osm_line_set = o3d.geometry.LineSet()
+
+    # Initialize an empty list to store points and lines
+    points = []
+    lines = []
+    point_index = 0  # This will keep track of the index for points to form lines
+
+    # Function to compute perpendicular vector to a line segment
+    def perpendicular_vector(v):
+        perp = np.array([-v[1], v[0], 0])
+        norm = np.linalg.norm(perp)
+        if norm == 0:
+            return perp  # To avoid division by zero
+        return perp / norm
+
+    # Process each road line
+    for road_line in osm_list:
+        start_point = np.array(road_line['start_point'])
+        end_point = np.array(road_line['end_point'])
+        width = np.float64(road_line['width'])/(63781.37/2.0)   # Need to make sure width is not a string and Need to convert the points to latlon
+
+        # Compute the unit vector perpendicular to the line segment
+        line_vec = end_point - start_point
+        perp_vec = perpendicular_vector(line_vec) * (width / 2)
+
+        # Calculate vertices for the polygon (rectangle)
+        v1 = start_point - perp_vec
+        v2 = start_point + perp_vec
+        v3 = end_point + perp_vec
+        v4 = end_point - perp_vec
+
+        # Add points to the list
+        points.extend([v1, v2, v3, v4])
+
+        # Add lines to connect these points into a rectangle
+        # Connect v1-v2, v2-v3, v3-v4, and v4-v1 to close the rectangle
+        lines.extend([
+            [point_index, point_index + 1],
+            [point_index + 1, point_index + 2],
+            [point_index + 2, point_index + 3],
+            [point_index + 3, point_index]
+        ])
+        point_index += 4  # Move to the next set of vertices
+
+    # Convert list of points and lines into Open3D Vector format
+    osm_line_set.points = o3d.utility.Vector3dVector(np.array(points))
+    osm_line_set.lines = o3d.utility.Vector2iVector(np.array(lines))
+
+    # Paint all lines with the specified color
+    osm_line_set.paint_uniform_color(rgb_color)
+
+    return osm_line_set
+
+def convert_OSM_list_to_o3d(osm_list, rgb_color):
+    # Initialize the LineSet object
+    osm_line_set = o3d.geometry.LineSet()
+
+    # Initialize an empty list to store points
+    points = []
+    lines = []
+    line_idx = 0  # This will keep track of the index for line connections
+
+    # Iterate over each road line in the osm_list
+    for road_line in osm_list:
+        # Get start and end points from the road line entry
+        start_point = road_line['start_point']
+        end_point = road_line['end_point']
+        # Add the start and end points to the points list
+        points.append(start_point)
+        points.append(end_point)
+        # Append a line connection from start to end point
+        lines.append([line_idx, line_idx + 1])
+        line_idx += 2  # Increment by 2 because each line uses two new points
+
+    # Convert list of points and lines into Open3D Vector format
+    osm_line_set.points = o3d.utility.Vector3dVector(np.array(points))
+    osm_line_set.lines = o3d.utility.Vector2iVector(np.array(lines))
+    # Paint all lines with the specified color
+    osm_line_set.paint_uniform_color(rgb_color)
+    return osm_line_set
+
+# def convert_OSM_list_to_o3d(osm_list, rgb_color):
+#     osm_lines = osm_list
+#     osm_line_set = o3d.geometry.LineSet()
+#     osm_points = [point for line in osm_lines for point in line]
+#     osm_lines_idx = [[i, i + 1] for i in range(0, len(osm_points), 2)]
+#     osm_line_set.points = o3d.utility.Vector3dVector(osm_points)
+#     osm_line_set.lines = o3d.utility.Vector2iVector(osm_lines_idx)
+#     osm_line_set.paint_uniform_color(rgb_color)
+#     return osm_line_set
+
 def road_near_pose(road_vertex, pos, threshold):
     road_vertex = np.array(road_vertex)
     vert_dist = np.sqrt((pos[0] - road_vertex[0])*(pos[0] - road_vertex[0])+(pos[1] - road_vertex[1])*(pos[1] - road_vertex[1]))
     return vert_dist <= threshold
 
-def get_osm_roads_list(osm_file_path, pos_lat_lon, threshold_dist):
-    # Define tags for querying roads
-    tags = {'highway': True}  # This will fetch all types of roads
+default_widths = {
+    'motorway': 10.0,
+    'primary': 7.0,
+    'secondary': 5.0,
+    'tertiary': 4.0,
+    'unclassified': 2.0,
+    'residential': 2.0
+}
+road_width_lists = {
+    'motorway': [],
+    'primary': [],
+    'secondary': [],
+    'tertiary': [],
+    'unclassified': [],
+    'residential': []
+}
+def update_default_widths(road_type, road_width):
+    road_width_lists[f'{road_type}'].append(np.float64(road_width))
+    default_widths[f'{road_type}'] = np.mean(road_width_lists[f'{road_type}'])
 
+def get_osm_roads_list_new(osm_file_path, pos_lat_lon, threshold_dist):
+    # Define tags for querying roads
+    tags = {'highway': ['residential', 'tertiary']}  # This will fetch tertiary and residential roads
+    
     # Fetch roads using defined tags
     roads = ox.geometries_from_xml(osm_file_path, tags=tags)
-
-    # Process Roads as LineSets
+    
+    # Process Roads as LineSets with width
     road_lines = []
     for _, road in roads.iterrows():
         if road.geometry.type == 'LineString':
+            road_type = road['highway'] if 'highway' in road else 'unclassified'
+
+            road_width = None   # Initialize road_width
+            if str(road['width']) != 'nan':
+                road_width = road['width']
+                update_default_widths(road_type, road_width)
+            else:
+                road_width = default_widths.get(road_type, 2.0)
+
+            # print(f"road_type: {road_type}, road_width: {road_width}")
+
             coords = np.array(road.geometry.xy).T
             road_center = [np.mean(np.array(coords)[:, 0]), np.mean(np.array(coords)[:, 1])]
             if road_near_pose(road_center, np.asarray(pos_lat_lon), threshold_dist):
                 for i in range(len(coords) - 1):
                     start_point = [coords[i][0], coords[i][1], 0]  # Assuming roads are at ground level (z=0)
                     end_point = [coords[i + 1][0], coords[i + 1][1], 0]
-                    road_lines.append([start_point, end_point])
+                    # road_lines.append([start_point, end_point])
+                    road_lines.append({
+                    'start_point': start_point,
+                    'end_point': end_point,
+                    'width': road_width
+                    })
     return road_lines
-
 
 # def get_osm_building_entrance_data_pcd(osm_file_path):
 #     # Filter features for building entrances tagged as service
